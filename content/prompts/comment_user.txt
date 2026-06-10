@@ -1,0 +1,4 @@
+Post: "{post_text[:500]}"
+Author: {author_headline}
+
+Write {n_variants} comment variants.
