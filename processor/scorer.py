@@ -2,16 +2,13 @@
 
 import os
 import logging
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# Scoring thresholds from .env
-TIER_A_THRESHOLD = float(os.getenv("SCORING_TIER_A_THRESHOLD", "0.65"))
-TIER_B_THRESHOLD = float(os.getenv("SCORING_TIER_B_THRESHOLD", "0.40"))
 
-
-def score_profiles(profiles: list[dict], niche_keywords: list[str]) -> list[dict]:
+def score_profiles(profiles: list[dict], niche_keywords: list[str],
+                   config: Optional[object] = None) -> list[dict]:
     """
     Score each profile and assign a tier (A/B/C).
 
@@ -22,7 +19,19 @@ def score_profiles(profiles: list[dict], niche_keywords: list[str]) -> list[dict
         engagement  = min(comment_word_count / 20, 1.0)  — approximated as constant 0.5 for Phase 1
 
         overall = (relevance * 0.4) + (influence * 0.25) + (recency * 0.2) + (engagement * 0.15)
+
+    Accepts an optional config object. If provided, thresholds are read from
+    config.client.scoring; otherwise fall back to environment variables.
     """
+    # Read thresholds: config → env → hardcoded defaults
+    if config and hasattr(config, "client") and hasattr(config.client, "scoring"):
+        s = config.client.scoring
+        tier_a_threshold = getattr(s, "tier_a_threshold", 0.65)
+        tier_b_threshold = getattr(s, "tier_b_threshold", 0.40)
+    else:
+        tier_a_threshold = float(os.getenv("SCORING_TIER_A_THRESHOLD", "0.65"))
+        tier_b_threshold = float(os.getenv("SCORING_TIER_B_THRESHOLD", "0.40"))
+
     scored = []
     for profile in profiles:
         try:
@@ -51,9 +60,9 @@ def score_profiles(profiles: list[dict], niche_keywords: list[str]) -> list[dict
             overall = (relevance * 0.4) + (influence * 0.25) + (recency * 0.2) + (engagement * 0.15)
 
             # Tier assignment
-            if overall >= TIER_A_THRESHOLD:
+            if overall >= tier_a_threshold:
                 tier = "A"
-            elif overall >= TIER_B_THRESHOLD:
+            elif overall >= tier_b_threshold:
                 tier = "B"
             else:
                 tier = "C"

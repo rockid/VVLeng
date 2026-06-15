@@ -3,7 +3,7 @@
 import os
 import re
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from .llm_client import complete, load_prompt
 
@@ -20,6 +20,7 @@ def generate_comments(
     niche: str,
     model: str | None = None,
     n_variants: int = 3,
+    config: Optional[object] = None,
 ) -> list[dict]:
     """
     Generate comment variants for a given post.
@@ -33,12 +34,19 @@ def generate_comments(
         n_variants=n_variants,
     )
 
+    # Determine model: explicit arg → config → default
+    effective_model = model
+    if effective_model is None:
+        if config and hasattr(config, "llm") and hasattr(config.llm, "comment_model"):
+            effective_model = config.llm.comment_model
+
     raw = complete(
         prompt=user_prompt,
         system=system_prompt,
-        model=model,
+        model=effective_model,
         max_tokens=500,
         temperature=0.7,
+        config=config,
     )
 
     # Parse response — one comment per line

@@ -1,0 +1,79 @@
+# ── Identity ──────────────────────────────────────────────────────────
+client_id: "your_client_id"          # must match filename stem and data folder name
+display_name: "Your Client Name"
+
+# ── Niche definition ──────────────────────────────────────────────────
+niche:
+  product_description: |
+    One-paragraph description of your product/service.
+
+  primary_use_case: "Primary use case phrase"
+
+  expanding_use_cases:
+    - "Expanding use case 1"
+    - "Expanding use case 2"
+
+  target_audience:
+    - "Target persona 1"
+    - "Target persona 2"
+
+  pain_vocabulary:
+    - "pain term 1"
+    - "pain term 2"
+
+# ── Keywords — three tiers ────────────────────────────────────────────
+keywords:
+  tier1_direct:
+    - "direct keyword 1"
+    - "direct keyword 2"
+
+  tier2_lateral:
+    - "lateral keyword 1"
+    - "lateral keyword 2"
+
+  tier3_platforms:
+    - "platform name 1"
+    - "platform name 2"
+
+# ── Collection settings ────────────────────────────────────────────────
+collection:
+  posts_per_keyword: 30
+  min_engagement_tier1: 10
+  min_engagement_tier2: 50
+  min_engagement_tier3: 5
+  graph_traversal_enabled: false
+
+# ── Semantic filter ───────────────────────────────────────────────────
+filter:
+  min_semantic_similarity: 0.35
+  blocked_substrings:
+    - "hiring"
+    - "job opening"
+    - "we are recruiting"
+    - "happy to share that I have joined"
+    - "congratulations on your new role"
+    - "open to work"
+
+# ── Scoring ───────────────────────────────────────────────────────────
+scoring:
+  tier_a_threshold: 0.65
+  tier_b_threshold: 0.40
+  influencer_follower_threshold: 5000
+  min_score_for_signal: 6
+
+# ── Action limits ─────────────────────────────────────────────────────
+action_limits:
+  connections_per_day: 15
+  comments_per_day: 8
+  visits_per_day: 25
+  reposts_per_week: 3
+
+# ── Influencer watchlist (Route 1) ────────────────────────────────────
+influencer_watchlist:
+  - "https://www.linkedin.com/in/example1"
+  - "https://www.linkedin.com/in/example2"
+
+# ── Cost limits ───────────────────────────────────────────────────────
+cost_limits:
+  daily_apify_budget_usd: 3.00
+  monthly_apify_budget_usd: 60.00

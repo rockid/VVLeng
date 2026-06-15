@@ -3,14 +3,9 @@
 import os
 import logging
 from datetime import datetime, date
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-
-# Daily limits from .env
-LIMIT_CONNECTIONS = int(os.getenv("LIMIT_CONNECTIONS_PER_DAY", "15"))
-LIMIT_COMMENTS = int(os.getenv("LIMIT_COMMENTS_PER_DAY", "8"))
-LIMIT_VISITS = int(os.getenv("LIMIT_VISITS_PER_DAY", "25"))
 
 
 def build_daily_plan(
@@ -18,6 +13,7 @@ def build_daily_plan(
     profiles: list[dict],
     comments_map: dict[str, list[dict]],  # post_id → comment variants
     existing_actions: list[dict] | None = None,
+    config: Optional[object] = None,
 ) -> dict:
     """
     Build a daily action plan.
@@ -28,10 +24,30 @@ def build_daily_plan(
     3. Follow-up on previous comments that received a reply
     4. Tier B profiles (warm-up actions)
 
+    Limits are read from config (config.client.action_limits), then env vars,
+    then hardcoded defaults.
+
     Returns a plan dict matching the schema in §9 of the architecture spec.
     """
     plan_date = date.today().isoformat()
-    niche = os.getenv("NICHE_DESCRIPTION", "")
+
+    # Read action limits from config → env → defaults
+    if config and hasattr(config, "client") and hasattr(config.client, "action_limits"):
+        al = config.client.action_limits
+        limit_connections = getattr(al, "connections_per_day", 15)
+        limit_comments = getattr(al, "comments_per_day", 8)
+        limit_visits = getattr(al, "visits_per_day", 25)
+    else:
+        limit_connections = int(os.getenv("LIMIT_CONNECTIONS_PER_DAY", "15"))
+        limit_comments = int(os.getenv("LIMIT_COMMENTS_PER_DAY", "8"))
+        limit_visits = int(os.getenv("LIMIT_VISITS_PER_DAY", "25"))
+
+    # Niche description from config
+    niche_desc = ""
+    if config and hasattr(config, "client") and hasattr(config.client, "niche_description"):
+        niche_desc = config.client.niche_description
+    if not niche_desc:
+        niche_desc = os.getenv("NICHE_DESCRIPTION", "")
 
     actions: list[dict] = []
     comments_used = 0
@@ -39,9 +55,9 @@ def build_daily_plan(
     visits_used = 0
 
     # 1. Recent posts → comment actions
-    if LIMIT_COMMENTS > 0:
+    if limit_comments > 0:
         for post in posts:
-            if comments_used >= LIMIT_COMMENTS:
+            if comments_used >= limit_comments:
                 break
             post_id = post.get("id", "")
             post_url = post.get("url", "")
@@ -74,9 +90,9 @@ def build_daily_plan(
             comments_used += 1
 
     # 2. Tier A profiles → connection actions
-    if LIMIT_CONNECTIONS > 0:
+    if limit_connections > 0:
         for profile in profiles:
-            if connections_used >= LIMIT_CONNECTIONS:
+            if connections_used >= limit_connections:
                 break
             tier = profile.get("tier", "C")
             if tier == "A":
@@ -95,9 +111,9 @@ def build_daily_plan(
                 connections_used += 1
 
     # 3. Tier B profiles → visit actions
-    if LIMIT_VISITS > 0:
+    if limit_visits > 0:
         for profile in profiles:
-            if visits_used >= LIMIT_VISITS:
+            if visits_used >= limit_visits:
                 break
             tier = profile.get("tier", "C")
             if tier == "B":
@@ -117,11 +133,11 @@ def build_daily_plan(
     # Build plan
     plan = {
         "date": plan_date,
-        "niche": niche or "Not configured",
+        "niche": niche_desc or "Not configured",
         "capacity": {
-            "connections_remaining": LIMIT_CONNECTIONS - connections_used,
-            "comments_remaining": LIMIT_COMMENTS - comments_used,
-            "visits_remaining": LIMIT_VISITS - visits_used,
+            "connections_remaining": limit_connections - connections_used,
+            "comments_remaining": limit_comments - comments_used,
+            "visits_remaining": limit_visits - visits_used,
         },
         "actions": actions,
         "content_ideas": [],

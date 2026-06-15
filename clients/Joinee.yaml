@@ -1,0 +1,188 @@
+# ── Identity ──────────────────────────────────────────────────────────
+client_id: "Joinee"                    # must match filename stem and data folder name
+display_name: "Joinee Client"
+operator_linkedin_id: "https://www.linkedin.com/in/vladdupliakin/"
+
+# ── Niche definition (fill with your product details) ──────────────────
+niche:
+  product_description: "Community Management Platform SaaS. Helps businesses and organizations turn their existing customer/member base into active, engaged communities. Started in university alumni engagement; now serving online education platforms, business accelerators, incubators, entrepreneurial networks, SME-focused banks and fintechs, and any business that benefits from organizing customers into a sticky community layer."
+
+  primary_use_case: "Turning passive customer bases into active, self-sustaining communities"
+
+  expanding_use_cases:
+    - "Online course and cohort-based education community retention"
+    - "Startup accelerator and incubator alumni/portfolio network management"
+    - "Entrepreneurial community building and peer networking"
+    - "SME bank and fintech customer community engagement"
+    - "Professional association and trade body member engagement"
+    - "Corporate alumni and talent community management"
+    - "Subscription business churn reduction via community"
+    - "Brand community building for B2B SaaS companies"
+
+  target_audience:
+    - "Online education founders and community managers (Cohort-based courses, bootcamps)"
+    - "Accelerator and incubator program directors"
+    - "Entrepreneurial community leads and ecosystem builders"
+    - "SME bank heads of customer engagement and retention"
+    - "Fintech community and growth managers"
+    - "B2B SaaS customer success and community teams"
+    - "Professional association executives"
+    - "University alumni relations teams"
+
+  pain_vocabulary:
+    - "community churn"
+    - "low member engagement"
+    - "ghost community"
+    - "passive subscribers"
+    - "dead Slack group"
+    - "low cohort retention"
+    - "students disappearing after graduation"
+    - "alumni going dark"
+    - "no network effect"
+    - "community doesn't retain"
+    - "members don't show up"
+    - "customer loyalty gap"
+    - "low lifetime value"
+    - "one-and-done customers"
+    - "transactional relationships"
+    - "community ROI hard to prove"
+    - "volunteer burnout"
+    - "manual community management"
+
+# ── Keywords — three tiers ────────────────────────────────────────────
+keywords:
+  tier1_direct:
+    - "community management platform"
+    - "community engagement software"
+    - "online community platform"
+    - "member engagement platform"
+    - "community-led growth"
+    - "community retention"
+    - "cohort community management"
+    - "alumni community platform"
+    - "accelerator community management"
+    - "customer community platform"
+    - "branded community platform"
+    - "community building software"
+    - "community monetization"
+    - "peer learning community"
+    - "community flywheel"
+    - "community operations"
+    - "community activation"
+    - "network engagement platform"
+    - "member activation software"
+    - "community health metrics"
+
+
+  tier2_lateral:
+    - "cohort-based learning retention"
+    - "online course completion rates"
+    - "bootcamp alumni network"
+    - "accelerator portfolio network"
+    - "startup ecosystem building"
+    - "entrepreneurial peer network"
+    - "SME customer engagement"
+    - "bank customer loyalty program"
+    - "fintech community engagement"
+    - "customer success community"
+    - "B2B customer retention strategy"
+    - "churn reduction SaaS"
+    - "product-led community"
+    - "community as moat"
+    - "network effects business"
+    - "peer-to-peer engagement"
+    - "gamification engagement"
+    - "behavioral engagement design"
+    - "customer lifetime value community"
+    - "community qualified leads"
+    - "dark social community"
+    - "Slack community management"
+    - "Discord community engagement"
+    - "membership community growth"
+    - "paid community platform"
+    - "community event management"
+    - "mentorship platform"
+    - "knowledge sharing community"
+    - "ambassador program software"
+    - "advocate marketing platform"
+
+  tier3_platforms:
+    # Community platforms (direct competitors/adjacent)
+    - "Hivebrite"
+    - "Mighty Networks"
+    - "Circle.so"
+    - "Skool"
+    - "Bettermode"
+    - "Tribe.so"
+    - "Khoros"
+    - "Higher Logic"
+    - "Disciple Media"
+    - "Vanilla Forums"
+    - "Discourse"
+    # Alumni-specific (legacy niche)
+    - "Graduway"
+    - "EverTrue"
+    - "Almabase"
+    - "Blackbaud"
+    # Accelerator/cohort tools
+    - "Upstream"
+    - "Luma"
+    - "Bevy"
+    # Broader engagement/CRM adjacent
+    - "Salesforce Communities"
+    - "HubSpot Community"
+    - "Gainsight"
+    - "Totango"
+    - "Orbit"
+    - "Common Room"
+
+# ── Collection settings ────────────────────────────────────────────────
+collection:
+  posts_per_keyword: 30
+  min_engagement_tier1: 10
+  min_engagement_tier2: 50
+  min_engagement_tier3: 5
+  graph_traversal_enabled: false
+
+# ── Semantic filter ───────────────────────────────────────────────────
+filter:
+  min_semantic_similarity: 0.35
+  blocked_substrings:
+    - "hiring"
+    - "job opening"
+    - "we are recruiting"
+    - "happy to share that I have joined"
+    - "congratulations on your new role"
+    - "open to work"
+    - "internship"
+    - "scholarship"
+    - "admission"
+    - "apply now"
+    - "apply now"
+    - "community guidelines violation"
+    - "terms of service"
+
+# ── Scoring ───────────────────────────────────────────────────────────
+scoring:
+  tier_a_threshold: 0.65
+  tier_b_threshold: 0.40
+  influencer_follower_threshold: 5000
+  min_score_for_signal: 6
+
+# ── Action limits ─────────────────────────────────────────────────────
+action_limits:
+  connections_per_day: 15
+  comments_per_day: 8
+  visits_per_day: 25
+  reposts_per_week: 3
+
+# ── Influencer watchlist (Route 1) ────────────────────────────────────
+influencer_watchlist:
+  - "https://www.linkedin.com/in/catherwoodryan/"
+  - "https://www.linkedin.com/in/kimmy-costa/"
+  - "https://www.linkedin.com/in/tomrossmedia/"
+
+# ── Cost limits ───────────────────────────────────────────────────────
+cost_limits:
+  daily_apify_budget_usd: 3.00
+  monthly_apify_budget_usd: 50.00

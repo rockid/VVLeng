@@ -1,0 +1,35 @@
+# ── Active client ─────────────────────────────────────────────────────
+# Override with --client CLI flag
+active_client: "Joinee"
+
+# ── Apify actor IDs ───────────────────────────────────────────────────
+actors:
+  post_search: "harvestapi/linkedin-post-search"
+  # fallback: "apimaestro/linkedin-posts-search-scraper-no-cookies"
+  post_scraper: "harvestapi/linkedin-post-search"
+  # profile_scraper: apify/linkedin-profile-scraper  — deprecated (actor no longer available)
+  # profile_scraper: ""
+  # follower_scraper: apify/linkedin-followers-scraper  — deprecated
+
+# ── LLM models ────────────────────────────────────────────────────────
+llm:
+  default_model: "gemini-2.5-flash-lite"
+  comment_model: "gpt-4.1-mini"
+  hook_model: "gpt-4.1-mini"
+  signal_model: "gpt-4.1-mini"
+  scoring_model: "gpt-4.1-mini"
+
+# ── Global pipeline defaults (overridable per client) ─────────────────
+defaults:
+  max_posts_per_keyword: 50
+  min_post_length_chars: 100
+  max_post_age_days: 7
+  dedup_window_days: 14
+  apify_max_runs_per_hour: 10
+  fetch_usage_after_run: false   # set true after Phase 0 to track costs
+
+# ── Paths ─────────────────────────────────────────────────────────────
+paths:
+  clients_dir: "./clients"
+  data_dir: "./data"
+  logs_dir: "./logs"
