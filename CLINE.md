@@ -30,6 +30,25 @@ SESSION PLAN:
 Confirm to proceed? (yes / adjust plan first)
 ```
 
+
+### 2.5 — Session Resumption Protocol (Mandatory After Interruption)
+
+If this session was preceded by an interruption, window reload, or you detect that context may have been lost:
+
+1. **Immediately read `progress.md`** before touching any file
+2. Identify the last entry timestamp and status — that is your restoration point
+3. Output a restoration statement:
+   ```
+   [RESTORE] Last progress.md entry: <timestamp> — <status>
+   Last action completed: <description>
+   Resuming at: <next logical step>
+   ```
+4. **Do not re-execute any step already logged in `progress.md`** — skip forward to the next uncompleted step
+5. If you are unsure whether a step was completed, check `progress.md` and `git log --oneline -5` — if neither confirms completion, ask the user before re-executing
+6. If the last entry says `BLOCKED` or `FAILED`, ask the user whether to retry or skip before proceeding
+
+This takes precedence over the normal Session Start Protocol (Section 2) when `progress.md` has an entry from the same day.
+
 ---
 
 ## 3. Status Reporting — Every Step
@@ -38,7 +57,11 @@ After every file created, modified, or deleted — immediately output:
 ```
 [DONE] <filename> — <one line describing what changed>
 ```
-After every [DONE], immediately update `progress.md` and — if applicable — commit to git (see [Section 9 — Git Discipline](#9-git-discipline)).
+
+**Mandatory next action (enforced gate):**
+After every `[DONE]`, the **very next tool call MUST update `progress.md`** with the outcome of that `[DONE]`. No other tool call (no read_file, no write_to_file, no execute_command) is permitted between `[DONE]` and the progress.md update.
+
+After that progress.md update — and if applicable — commit to git (see [Section 10 — Git Discipline](#10-git-discipline)).
 
 If you are about to make a decision that has multiple valid approaches, stop and output:
 ```
@@ -140,9 +163,36 @@ tail -5 progress.md
 Confirm the timestamp is from this session and reflects the last action taken.
 If the last entry is stale → update it now before outputting any session summary.
 
+### 8.5 — Pre-Tool-Call Verification Gate (Mandatory)
+
+Before executing **any** tool call that reads or writes a file (including `read_file`, `write_to_file`, `replace_in_file`, `execute_command` with file side-effects), you MUST:
+
+1. Pause and check: *"Has progress.md been updated since the last [DONE]?"*
+2. If **no** — abort the tool call and update progress.md first
+3. If **yes** — proceed
+4. The only exception is the tool call that *updates progress.md itself*
+
+This gate prevents the common pattern of: "I'll log it after I finish this next thing" — which is exactly how entries get lost.
+
+### 8.6 — Recovery After Interruption (Window Reload / Session Break)
+
+If you detect that the environment has been reset (e.g., open tabs gone, context window cleared, or the user reports a window reload):
+
+1. **Immediately read `progress.md`** — this is your anchor
+2. **Run `git log --oneline -5`** to cross-reference the last committed state
+3. Output a recovery statement:
+   ```
+   [RECOVERY] Environment reset detected.
+   Last progress.md entry: <timestamp> — <status>
+   Last git commit: <hash> — <message>
+   Resuming from: <specific step>
+   ```
+4. **Do not re-do work** — if progress.md says it's done, it's done. Skip forward.
+5. If the last progress.md entry says `BLOCKED` or `FAILED`, ask the user whether to retry or move on
+
 ---
 
-## 9. Git Discipline
+## 10. Git Discipline
 
 Git is mandatory for continuity between sessions and for rollback safety.
 
@@ -150,7 +200,7 @@ Git is mandatory for continuity between sessions and for rollback safety.
 - After every file creation, modification, or deletion that is part of a task step
 - After every phase completion
 - Before any `[DECISION]` or `[STUCK]` break that might end the session
-- **Always** before session end — see [Session End Protocol](#11-session-end-protocol)
+- **Always** before session end — see [Session End Protocol](#12-session-end-protocol)
 
 ### Commit message convention:
 ```
@@ -189,7 +239,7 @@ Confirm only expected files are staged. If unexpected files appear, investigate 
 
 ---
 
-## 10. What NOT to Do
+## 11. What NOT to Do
 
 - Do not "think" for more than 2 minutes without producing a file change or a status output
 - Do not start Phase 1+ work while Phase 0 is incomplete
@@ -199,7 +249,7 @@ Confirm only expected files are staged. If unexpected files appear, investigate 
 
 ---
 
-## 11. Session End Protocol
+## 12. Session End Protocol
 
 Follow these steps in exact order. Do not skip or reorder.
 
@@ -213,7 +263,7 @@ Confirm the entry is there and timestamped correctly.
 **Step A2 — Commit all changes to git (mandatory):**
 1. Run `git status --short` and verify only expected files are changed
 2. `git add` relevant files — do NOT stage `.env`, `data/raw/`, or test fixtures (respect `.gitignore`)
-3. `git commit` with a message matching the convention (see [Section 9 — Git Discipline](#9-git-discipline))
+3. `git commit` with a message matching the convention (see [Section 10 — Git Discipline](#10-git-discipline))
 4. Run `git log --oneline -3` to confirm the commit landed
 
 **Step B — Only then output the session summary:**
