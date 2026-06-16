@@ -109,3 +109,14 @@ Notes:
 - This entry is itself a demonstration of the rule: written before the session summary, matching the last action taken
 
 Next session: Integrate semantic filter + post scorer into main `run_pipeline.py` pipeline, or proceed to Phase 3 (dashboard integration).
+
+### 2026-06-17 01:36
+Phase: 2 | Step: Re-run tier1_tier2 test pipeline + fix Unicode crash on Windows + save companion output for user review
+Status: DONE
+Files changed: scratch/run_tier1_tier2.py, scratch/capture_output.py (new), progress.md
+Test result: PASS — pipeline completed successfully. 1290 raw → 30 comment actions planned. Funnel: 1290 normalised → 281 kept after semantic filter → 99 after engagement filter → 85 after dedup → 30 planned. Output saved to `scratch/tier1_tier2_output_2026-06-17.txt`.
+Notes:
+- Fixed `print_filter_funnel()` in `run_tier1_tier2.py`: replaced Unicode box-drawing character `─` with ASCII `-` to avoid `UnicodeEncodeError: 'charmap' codec can't encode` crash on Windows (cp1252).
+- Created `scratch/capture_output.py` using `subprocess.run()` with `encoding="utf-8"` and `errors="replace"` to reliably capture full pipeline output without shell encoding issues.
+- The fixed output file (458.7 KB) contains complete pipeline logs including filter funnel, scored shortlist, and 30 selected comment targets with names/URLs/previews.
+- This entry follows the new CLINE.md Section 3 rule: progress.md update is the first action after [DONE].
