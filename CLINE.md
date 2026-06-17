@@ -157,9 +157,11 @@ Notes: <what worked, what failed, what next session needs to know>
 - The last entry in progress.md must match the last thing you actually did
 
 ### Verification step — mandatory before session end:
-```bash
-tail -5 progress.md
+```python
+# Windows compatible — read last 500 chars of progress.md
+python -c "print(open('progress.md','r',encoding='utf-8').read()[-500:])"
 ```
+Or use `read_file` on `progress.md` with the last lines.
 Confirm the timestamp is from this session and reflects the last action taken.
 If the last entry is stale → update it now before outputting any session summary.
 
@@ -189,6 +191,54 @@ If you detect that the environment has been reset (e.g., open tabs gone, context
    ```
 4. **Do not re-do work** — if progress.md says it's done, it's done. Skip forward.
 5. If the last progress.md entry says `BLOCKED` or `FAILED`, ask the user whether to retry or move on
+
+### 8.7 — Zero-Tolerance Enforcement (Mandatory)
+
+The following rules are non-negotiable. Violation of any triggers an automatic `[STUCK]` escalation and requires user intervention to proceed.
+
+**Rule 1: No tool call without a progress.md checkpoint.**
+Before ANY tool call (`read_file`, `write_to_file`, `replace_in_file`, `execute_command`, `use_mcp_tool`, `access_mcp_resource`), you MUST be able to answer "yes" to both:
+- Has `progress.md` been updated since the last `[DONE]` output?
+- Has `progress.md` been updated since my last tool call that was NOT itself a progress.md update?
+
+If the answer to either is "no" → **abort the tool call** and update progress.md first.
+
+**Rule 2: The 3-call budget.**
+You are allowed at most 3 consecutive tool calls without a progress.md update. On the 3rd call, progress.md MUST be updated before any 4th call. Reset the counter after each progress.md update.
+- Exception: A multi-SEARCH/REPLACE `replace_in_file` counts as 1 call.
+- Exception: The tool call that *updates progress.md itself* does not count.
+
+**Rule 3: No silent gap > 2 minutes.**
+If you have not made a progress.md update in the last 2 minutes of active tool use, you must output a `[STATUS]` line and update progress.md before the next tool call:
+```
+[STATUS] Last action: <what just happened> | Next: <next step>
+```
+
+**Rule 4: Session start MUST anchor on progress.md.**
+At session start (after any interruption, reload, new task, or mode switch to ACT), the FIRST file read MUST be `progress.md`. If `progress.md` is empty or the last entry is stale (>1 hour old), output:
+```
+[ANCHOR] progress.md is missing/stale. No restoration possible.
+Starting fresh. All previous work will need to be re-done or verified.
+Proceed anyway? (yes / no — user please confirm)
+```
+Do NOT touch any other file until the user responds.
+
+**Consequences of violation:**
+If a user reports that work was repeated, a step was skipped, or context was lost because progress.md was not updated:
+- The session is marked `[FAILED]` in the git commit message
+- The violating agent must stop and re-read progress.md before any further action
+- A `[DECISION]` block is required: "How to prevent this from happening again?"
+
+### 8.8 — Mandatory Read-Back on Every progress.md Write
+
+Immediately after writing to progress.md, read it back to confirm the write took effect:
+```python
+# Windows compatible — no tail needed
+python -c "print(open('progress.md','r',encoding='utf-8').read()[-500:])"
+```
+Or use `read_file` on `progress.md` with `start_line=max(1,total_lines-5)`.
+
+This prevents the "I thought I wrote it but it didn't save" class of bugs.
 
 ---
 
@@ -254,10 +304,11 @@ Confirm only expected files are staged. If unexpected files appear, investigate 
 Follow these steps in exact order. Do not skip or reorder.
 
 **Step A — Write progress.md first (mandatory):**
-Append a final entry to `progress.md` covering everything done this session that isn't already logged. Then run:
-```bash
-tail -5 progress.md
+Append a final entry to `progress.md` covering everything done this session that isn't already logged. Then confirm by reading back the last 500 chars:
+```python
+python -c "print(open('progress.md','r',encoding='utf-8').read()[-500:])"
 ```
+Or use `read_file` on `progress.md` with the last lines.
 Confirm the entry is there and timestamped correctly.
 
 **Step A2 — Commit all changes to git (mandatory):**

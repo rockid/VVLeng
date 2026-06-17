@@ -1,5 +1,12 @@
 # VVLeng Progress Log
 
+## 2026-06-17 02:30
+Phase: 0 | Step: CLINE.md — add Zero-Tolerance Enforcement for progress.md (8.7) + Read-Back (8.8) + fix Windows `tail` commands
+Status: DONE
+Files changed: CLINE.md (added sections 8.7, 8.8, replaced tail with python -c in verification + Section 12 Step A)
+Test result: N/A
+Notes: Section 8.7 adds: no tool call without checkpoint, 3-call budget, 2-min silence rule, session anchor on progress.md, violation consequences. Section 8.8 adds mandatory read-back after every progress.md write. All `tail -5` commands replaced with Windows-compatible python -c.
+
 ## 2026-06-17 02:22
 Phase: 0 | Step: Pipeline Integration — scratch logic into run_pipeline.py
 Status: DONE
