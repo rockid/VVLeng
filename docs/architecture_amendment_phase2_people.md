@@ -1,8 +1,12 @@
-# Architecture Amendment — People Pipeline & Relationship Engine
-Date: 2026-06-14
-Status: APPROVED — implement in Phase 2
+# Architecture Amendment — Collector Upgrade + People Pipeline & Relationship Engine
+Date: 2026-06-14 (collector section added 2026-06-15)
+Status: APPROVED — implement Phase 1.5 first, then Phase 2
 
-This document extends the original architecture with the people pipeline, relationship state machine, influencer ranking system, and delayed scrape logic. Hand to Cline alongside CLINE.md when starting Phase 2.
+This document extends the original architecture with:
+- **Phase 1.5** (do first): collector upgrade — relevance sort, waterfall logic, KW rotation, dynamic threshold
+- **Phase 2**: people pipeline, relationship state machine, influencer ranking, delayed scrape
+
+Hand to Cline alongside CLINE.md. Build Phase 1.5 before starting Phase 2.
 
 ---
 
@@ -13,6 +17,172 @@ The system has two parallel pipelines:
 2. **People pipeline** (this amendment) — discover people, qualify as ICP, warm up, feed outreach
 
 The people pipeline is the bridge between content intelligence and LinkedIn outreach. Its output is a daily ranked shortlist of ICP candidates ready for connection requests.
+
+---
+
+## PHASE 1.5 — Collector Upgrade (build before Phase 2)
+
+### Background
+
+Empirical testing (2026-06-15) showed that `sortBy: relevance` dramatically outperforms `sortBy: date` for post quality:
+- 15+ engagement posts: 7% (date) vs 35% (relevance)
+- Top post engagement: 137 (date) vs 795 (relevance)
+
+Testing also showed 553 unique posts across 20 tier-1 KWs at 30 posts each yielded 16 posts with 200+ total engagement — more than enough to produce the weekly shortlist of 15. This enables a waterfall approach that stops fetching as soon as the target is met, minimising cost.
+
+---
+
+### 1.5.1 Sort Order Change
+
+**One-line fix. Do this first.**
+
+In the collector, change all KW search calls from `sortBy: date` to `sortBy: relevance`. Apply to all tiers. Route 1 (influencer profile posts) is unaffected — it uses a different actor.
+
+---
+
+### 1.5.2 Waterfall Collection Logic
+
+Replace the current batch-all-keywords approach with a sequential waterfall that stops when the target is met.
+
+**Algorithm:**
+```
+target_candidates = waterfall.target_candidates        # config, default 40
+always_run = waterfall.always_run_top_n               # config, default 3
+explore_slots = waterfall.explore_slots               # config, default 2
+
+# Build run order for this execution
+run_order = top N KWs by yield_score (from kw_stats table)
+            + explore_slots random picks from remaining KWs (all tiers)
+
+candidates = []
+
+for kw in run_order:
+    if len(candidates) >= target_candidates:
+        break
+    posts = apify_fetch(kw, maxPosts=waterfall.fetch_per_kw, sortBy=relevance)
+    update_kw_stats(kw, posts)           # record total fetched, eng_sum
+    candidates += posts                  # dedup handled after loop
+
+# After waterfall completes:
+candidates = dedupe(candidates)
+candidates = filter(candidates, min_length, max_age, blocked_substrings)
+# Dynamic threshold: sort by engagement desc, take top target_shortlist
+candidates_sorted = sort(candidates, by=engagement desc)
+shortlist = candidates_sorted[:waterfall.target_shortlist]   # default 15
+record_cutoff_engagement(shortlist[-1].engagement)           # for monitoring
+```
+
+**Key points:**
+- Waterfall stops early on good weeks — cheap runs
+- Always-run slots ensure top KWs are refreshed every time
+- Explore slots ensure bottom KWs get sampled periodically — stats stay fresh
+- All tiers (1, 2, 3) are in the same pool, ranked by historical yield. Tier 2/3 KWs naturally get called when tier 1 KWs are exhausted or in explore slots.
+- Dynamic threshold: no fixed engagement floor — always returns exactly `target_shortlist` posts, self-adjusting to weekly supply
+
+---
+
+### 1.5.3 KW Stats Table
+
+New DB table to track per-keyword yield history.
+
+```sql
+CREATE TABLE kw_stats (
+    keyword         TEXT PRIMARY KEY,
+    tier            INTEGER,            -- 1, 2, or 3
+    total_runs      INTEGER DEFAULT 0,
+    total_fetched   INTEGER DEFAULT 0,
+    total_eng_sum   INTEGER DEFAULT 0,
+    avg_eng_per_post REAL DEFAULT 0.0,  -- updated after each run
+    yield_score     REAL DEFAULT 5.0,   -- starts neutral; updated after each run
+    last_run_at     TEXT,
+    last_fetched    INTEGER DEFAULT 0,  -- posts fetched in last run
+    last_eng_sum    INTEGER DEFAULT 0   -- engagement sum in last run
+);
+```
+
+**Yield score formula** (updated after each run for this KW):
+```
+yield_score = avg_eng_per_post
+```
+Simple and interpretable. KWs with higher average engagement per post rank higher. New KWs start at 5.0 (neutral — gets explored before being ranked down).
+
+**Initialisation:** Populate from today's analysis results as starting values:
+
+| Keyword | Tier | Initial yield_score |
+|---|---|---|
+| online community platform | 1 | 58.9 |
+| member engagement platform | 1 | 55.8 |
+| community management platform | 1 | 65.2 |
+| community building software | 1 | 49.5 |
+| community operations | 1 | 45.7 |
+| alumni community platform | 1 | 42.2 |
+| community activation | 1 | 39.8 |
+| accelerator community management | 1 | 34.6 |
+| community retention | 1 | 32.6 |
+| network engagement platform | 1 | 29.0 |
+| community engagement software | 1 | 25.1 |
+| community-led growth | 1 | 21.4 |
+| community health metrics | 1 | 22.0 |
+| peer learning community | 1 | 19.1 |
+| customer community platform | 1 | 14.6 |
+| branded community platform | 1 | 9.1 |
+| cohort community management | 1 | 9.3 |
+| community flywheel | 1 | 8.6 |
+| member activation software | 1 | 6.8 |
+| community monetization | 1 | 5.7 |
+| *(all tier 2 and tier 3 KWs)* | 2/3 | 5.0 |
+
+---
+
+### 1.5.4 Config Keys (add to `config.yaml` under `waterfall:`)
+
+```yaml
+waterfall:
+  target_candidates: 40       # stop waterfall when this many posts collected (before dedup/filter)
+  target_shortlist: 15        # final posts returned after dynamic threshold
+  fetch_per_kw: 30            # maxPosts per keyword call
+  always_run_top_n: 3         # always run these top KWs by yield_score
+  explore_slots: 2            # random picks from non-top KWs per run
+```
+
+---
+
+### 1.5.5 New Module: `collector/waterfall.py`
+
+Responsibilities:
+- Load KW list + yield scores from `kw_stats` table
+- Build run order (top N + random explore slots)
+- Execute waterfall loop — call Apify per KW, stop when target met
+- Update `kw_stats` after each KW completes
+- Return deduplicated, filtered, dynamically-thresholded shortlist
+- Log cutoff engagement score for monitoring
+
+Replaces the current batch collection logic in `collector/route_keywords.py`. The existing module can be refactored or wrapped — do not delete, just redirect calls through waterfall.
+
+---
+
+### 1.5.6 Cline Build Order for Phase 1.5
+
+**Step 1.5.0 — Sort order fix**
+Change `sortBy` to `relevance` in all KW actor calls. Test with dry run. Verify in logs.
+
+**Step 1.5.1 — KW stats DB table**
+Add `kw_stats` table to DB schema. Populate initial yield scores from the table in Section 1.5.3. Verify table created and seeded.
+
+**Step 1.5.2 — Waterfall module**
+Build `collector/waterfall.py`. Unit test with mocked Apify calls (dry run). Verify: stops at target, updates kw_stats, returns correct shortlist size.
+
+**Step 1.5.3 — Wire waterfall into pipeline**
+Replace batch KW collection call in orchestrator with waterfall call. Full dry run. Then one live run with real Apify calls — verify cost is within budget, shortlist looks sensible.
+
+**Step 1.5.4 — Verify and document**
+Check `kw_stats` table is updating correctly after live run. Update `progress.md`. Confirm Phase 1.5 complete before starting Phase 2.
+
+---
+
+## PHASE 2 — People Pipeline & Relationship Engine
+
+### Overview
 
 ---
 
@@ -297,7 +467,9 @@ Verify model string is available on LZ before committing. If unavailable, fall b
 
 ---
 
-## 13. Cline Build Order
+## 13. Cline Build Order (Phase 2)
+
+**Prerequisite: Phase 1.5 must be complete and verified before starting any step below.**
 
 Work through these steps in order. Update `progress.md` after each. Run tests before moving to next step.
 

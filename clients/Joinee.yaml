@@ -50,115 +50,132 @@ niche:
     - "manual community management"
 
 # ── Keywords — three tiers ────────────────────────────────────────────
+# NOT block baked into every query string — no script changes needed.
+# Compact form to stay under LinkedIn 300-char search limit.
+
 keywords:
   tier1_direct:
-    - "community management platform"
-    - "community engagement software"
-    - "online community platform"
-    - "member engagement platform"
-    - "community-led growth"
-    - "community retention"
-    - "cohort community management"
-    - "alumni community platform"
-    - "accelerator community management"
-    - "customer community platform"
-    - "branded community platform"
-    - "community building software"
-    - "community monetization"
-    - "peer learning community"
-    - "community flywheel"
-    - "community operations"
-    - "community activation"
-    - "network engagement platform"
-    - "member activation software"
-    - "community health metrics"
-
+    # Top performers kept; bottom 7 replaced with broader pain/role terms
+    - 'community management platform NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'online community platform NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'member engagement platform NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community building software NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community operations NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'alumni community platform NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community activation NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'accelerator community management NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community retention NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community engagement software NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community-led growth NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'network engagement platform NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'member engagement NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community engagement NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'alumni engagement NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'cohort retention NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'low member engagement NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community manager NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'head of community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'customer retention community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
 
   tier2_lateral:
-    - "cohort-based learning retention"
-    - "online course completion rates"
-    - "bootcamp alumni network"
-    - "accelerator portfolio network"
-    - "startup ecosystem building"
-    - "entrepreneurial peer network"
-    - "SME customer engagement"
-    - "bank customer loyalty program"
-    - "fintech community engagement"
-    - "customer success community"
-    - "B2B customer retention strategy"
-    - "churn reduction SaaS"
-    - "product-led community"
-    - "community as moat"
-    - "network effects business"
-    - "peer-to-peer engagement"
-    - "gamification engagement"
-    - "behavioral engagement design"
-    - "customer lifetime value community"
-    - "community qualified leads"
-    - "dark social community"
-    - "Slack community management"
-    - "Discord community engagement"
-    - "membership community growth"
-    - "paid community platform"
-    - "community event management"
-    - "mentorship platform"
-    - "knowledge sharing community"
-    - "ambassador program software"
-    - "advocate marketing platform"
+    # Best run-3 performers kept; zero-yield dropped; pain/role terms added
+    - 'Slack community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'knowledge sharing community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'startup ecosystem building NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'membership community growth NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community as moat NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'mentorship platform NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'bootcamp alumni network NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'accelerator portfolio network NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'customer success community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'B2B customer retention strategy NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'SME customer engagement NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'churn reduction SaaS NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'product-led community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'peer-to-peer engagement NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'behavioral engagement design NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Discord community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community lead NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'community director NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'member retention NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'engagement drop NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'ghost community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'dead Slack NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'members not engaging NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'course completion NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'fintech community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'bank customer engagement NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'ambassador program NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'advocate marketing NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
 
   tier3_platforms:
-    # Community platforms (direct competitors/adjacent)
-    - "Hivebrite"
-    - "Mighty Networks"
-    - "Circle.so"
-    - "Skool"
-    - "Bettermode"
-    - "Tribe.so"
-    - "Khoros"
-    - "Higher Logic"
-    - "Disciple Media"
-    - "Vanilla Forums"
-    - "Discourse"
-    # Alumni-specific (legacy niche)
-    - "Graduway"
-    - "EverTrue"
-    - "Almabase"
-    - "Blackbaud"
-    # Accelerator/cohort tools
-    - "Upstream"
-    - "Luma"
-    - "Bevy"
-    # Broader engagement/CRM adjacent
-    - "Salesforce Communities"
-    - "HubSpot Community"
-    - "Gainsight"
-    - "Totango"
-    - "Orbit"
-    - "Common Room"
+    # People discovery only — do NOT use for commenting queue
+    - 'Hivebrite NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Mighty Networks NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Circle.so NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Skool NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Bettermode NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Khoros NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Higher Logic NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Discourse NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Graduway NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'EverTrue NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Almabase NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Luma community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Bevy community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Gainsight community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Common Room NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
+    - 'Orbit community NOT hiring NOT "new role" NOT "new chapter" NOT "thrilled to" NOT "excited to announce" NOT congratulations'
 
 # ── Collection settings ────────────────────────────────────────────────
 collection:
   posts_per_keyword: 30
   min_engagement_tier1: 10
-  min_engagement_tier2: 50
-  min_engagement_tier3: 5
+  min_engagement_tier2: 10
+  min_engagement_tier3: 10
   graph_traversal_enabled: false
 
 # ── Semantic filter ───────────────────────────────────────────────────
 filter:
   min_semantic_similarity: 0.35
   blocked_substrings:
+    # HR / job announcement noise — mirrors NOT block applied at collection time
+    # These catch what slips through (creative phrasing, no hashtag, etc.)
     - "hiring"
+    - "we're hiring"
     - "job opening"
+    - "job opportunity"
+    - "open position"
     - "we are recruiting"
-    - "happy to share that I have joined"
-    - "congratulations on your new role"
     - "open to work"
+    - "open to opportunities"
+    - "new role"
+    - "new chapter"
+    - "new position"
+    - "thrilled to announce"
+    - "excited to announce"
+    - "excited to share"
+    - "pleased to announce"
+    - "happy to share that I"
+    - "I am thrilled"
+    - "I'm thrilled"
+    - "joining the team"
+    - "join our team"
+    - "congratulations on your new"
+    - "congrats on your new"
+    - "promoted to"
+    - "after 5 years"                      # catches "after 5 amazing years at..."
+    - "after 3 years"
+    - "after 10 years"
+    - "years at "
+    # Education noise (not ICP pain — personal milestones)
     - "internship"
     - "scholarship"
     - "admission"
     - "apply now"
-    - "apply now"
+    - "graduation"
+    - "graduated from"
+    # Spam / policy noise
     - "community guidelines violation"
     - "terms of service"
 
@@ -171,10 +188,10 @@ scoring:
 
 # ── Action limits ─────────────────────────────────────────────────────
 action_limits:
-  connections_per_day: 15
-  comments_per_day: 8
+  connections_per_day: 20
+  comments_per_day: 30
   visits_per_day: 25
-  reposts_per_week: 3
+  reposts_per_week: 2
 
 # ── Influencer watchlist (Route 1) ────────────────────────────────────
 influencer_watchlist:

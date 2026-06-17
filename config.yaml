@@ -21,8 +21,8 @@ llm:
 
 # ── Global pipeline defaults (overridable per client) ─────────────────
 defaults:
-  max_posts_per_keyword: 50
-  min_post_length_chars: 100
+  max_posts_per_keyword: 30
+  min_post_length_chars: 500
   max_post_age_days: 7
   dedup_window_days: 14
   apify_max_runs_per_hour: 10
