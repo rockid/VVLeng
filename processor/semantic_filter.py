@@ -123,3 +123,66 @@ def passes_filter(
         text,
     )
     return passed, score
+
+
+_TIER_MULTIPLIER = {"tier1": 1.0, "tier2": 1.2, "tier3": 0.85}
+
+
+def evaluate_posts(
+    posts: list[dict],
+    niche_embedding: np.ndarray,
+    config,
+) -> list[tuple[dict, bool, float]]:
+    """
+    Batched semantic evaluation for a list of posts.
+
+    Equivalent to calling :func:`passes_filter` on each post, but encodes all
+    surviving posts in a single ``model.encode`` batch — roughly an order of
+    magnitude faster than encoding one post at a time on CPU.
+
+    Cheap pre-checks (blocked substrings, min length) are applied first so we
+    never embed an obviously irrelevant post.
+
+    Returns a list of ``(post, passed, score)`` tuples in the original order.
+    Posts rejected by a cheap pre-check get ``score == 0.0``.
+    """
+    client = config.client
+    blocked = [bs.lower() for bs in client.filter.blocked_substrings]
+    min_len = config.defaults.min_post_length_chars
+    base_threshold = client.filter.min_semantic_similarity
+
+    results: list[tuple[dict, bool, float] | None] = [None] * len(posts)
+    to_encode: list[str] = []
+    encode_idx: list[int] = []
+
+    for i, p in enumerate(posts):
+        text = (p.get("text") or "").strip()
+        if not text:
+            results[i] = (p, False, 0.0)
+            continue
+        tl = text.lower()
+        if any(bs in tl for bs in blocked):
+            results[i] = (p, False, 0.0)
+            continue
+        if len(text) < min_len:
+            results[i] = (p, False, 0.0)
+            continue
+        to_encode.append(text)
+        encode_idx.append(i)
+
+    if to_encode:
+        model = get_model()
+        embs = model.encode(
+            to_encode, convert_to_tensor=False, batch_size=64, show_progress_bar=False
+        )
+        niche_norm = float(np.linalg.norm(niche_embedding)) + 1e-10
+        for j, i in enumerate(encode_idx):
+            e = embs[j]
+            score = float(np.dot(niche_embedding, e) / (niche_norm * np.linalg.norm(e) + 1e-10))
+            p = posts[i]
+            tier = (p.get("keyword_tier") or "tier1")
+            multiplier = _TIER_MULTIPLIER.get(tier, 1.0)
+            threshold = base_threshold * multiplier
+            results[i] = (p, score >= threshold, score)
+
+    return [r for r in results if r is not None]

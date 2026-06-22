@@ -32,62 +32,70 @@ logging.basicConfig(
 logger = logging.getLogger("pipeline")
 
 
+def _keyword_base(kw: str) -> str:
+    """Strip the boolean ``NOT ...`` suffix, returning the core search phrase."""
+    return kw.split(" NOT ")[0].strip().strip("'\"").lower()
+
+
 def tag_posts_by_keyword_tier(posts: list[dict], config) -> list[dict]:
     """
-    Tag each post with its ``keyword_tier`` by matching post text against
-    the configured tier1 and tier2 keyword lists.
+    Tag each post with its ``keyword_tier`` based on the search query that
+    actually surfaced it (``source_query``, captured by the normaliser).
 
-    A post is tier-1 if its text (or author_headline) contains any tier1_direct
-    keyword substring. Otherwise defaults to tier2.
+    This is far more accurate than re-matching post text: the search query is
+    ground truth for which tier's keyword found the post. (The previous
+    text-matching approach skipped every keyword containing ``NOT`` — i.e. all
+    of them — so every post fell through to tier2.)
 
-    Returns the same list with a ``keyword_tier`` key added to each post.
+    Falls back to matching the keyword's base phrase (the part before ``NOT``)
+    against the post text when ``source_query`` is missing or unrecognised.
     """
-    tier1_kw = list(config.client.keywords.tier1_direct)
-    tier2_kw = list(config.client.keywords.tier2_lateral)
+    kw = config.client.keywords
 
-    tier1_kw_lower = [kw.lower() for kw in tier1_kw]
-    tier2_kw_lower = [kw.lower() for kw in tier2_kw]
+    # Exact source_query → tier (queries are sent verbatim, returned verbatim)
+    q_to_tier: dict[str, str] = {}
+    for tier, kws in (("tier1", kw.tier1_direct), ("tier2", kw.tier2_lateral), ("tier3", kw.tier3_platforms)):
+        for k in kws:
+            q_to_tier[k.strip().strip("'\"").lower()] = tier
 
-    def _matches(text: str, keywords: list[str]) -> bool:
-        text_lower = text.lower()
-        for kw in keywords:
-            if " NOT " in kw:
-                # Complex boolean keyword — skip simple matching, treat as tier2
-                continue
-            if kw in text_lower:
-                return True
-        return False
+    # Base-phrase fallback maps (longest first so specific phrases win)
+    tier1_base = sorted((_keyword_base(k) for k in kw.tier1_direct), key=len, reverse=True)
+    tier2_base = sorted((_keyword_base(k) for k in kw.tier2_lateral), key=len, reverse=True)
 
-    tagged = []
+    counts = {"tier1": 0, "tier2": 0, "tier3": 0}
     for p in posts:
-        text = (p.get("text") or "") + " " + (p.get("author_headline") or "")
-        if _matches(text, tier1_kw_lower):
-            p["keyword_tier"] = "tier1"
-        elif _matches(text, tier2_kw_lower):
-            p["keyword_tier"] = "tier2"
-        else:
-            # Default to tier2 (lateral relevance)
-            p["keyword_tier"] = "tier2"
-        tagged.append(p)
+        sq = (p.get("source_query") or "").strip().strip("'\"").lower()
+        tier = q_to_tier.get(sq)
+        if tier is None:
+            text = ((p.get("text") or "") + " " + (p.get("author_headline") or "")).lower()
+            if any(b and b in text for b in tier1_base):
+                tier = "tier1"
+            elif any(b and b in text for b in tier2_base):
+                tier = "tier2"
+            else:
+                tier = "tier2"  # default to lateral
+        p["keyword_tier"] = tier
+        counts[tier] = counts.get(tier, 0) + 1
 
-    tier1_count = sum(1 for p in tagged if p["keyword_tier"] == "tier1")
-    tier2_count = sum(1 for p in tagged if p["keyword_tier"] == "tier2")
-    logger.info("Tagged posts: %d tier-1, %d tier-2", tier1_count, tier2_count)
-    return tagged
+    logger.info("Tagged posts: %d tier-1, %d tier-2, %d tier-3",
+                counts["tier1"], counts["tier2"], counts.get("tier3", 0))
+    return posts
 
 
 def apply_semantic_filter(posts: list[dict], niche_embedding: np.ndarray, config) -> tuple[list[dict], int]:
     """
-    Apply semantic similarity gate via processor/semantic_filter.passes_filter().
+    Apply semantic similarity gate via processor/semantic_filter.evaluate_posts()
+    (batched). The raw cosine similarity is stored on each kept post as
+    ``semantic_score`` so the post scorer can reuse it for relevance.
     Returns (kept_posts, dropped_count).
     """
-    from processor.semantic_filter import passes_filter
+    from processor.semantic_filter import evaluate_posts
 
     kept = []
     dropped = 0
-    for p in posts:
-        passed, score = passes_filter(p, niche_embedding, config)
+    for p, passed, score in evaluate_posts(posts, niche_embedding, config):
         if passed:
+            p["semantic_score"] = round(score, 4)
             kept.append(p)
         else:
             dropped += 1
@@ -191,12 +199,10 @@ def print_filter_funnel(raw_count: int, normalised_count: int,
 
 
 def print_ranked_shortlist(posts: list[dict], scores: list, limit: int):
-    """Print the top-N posts ranked by heuristic score."""
-    from processor.post_scorer import PostScore
-
-    # Attach scores to posts and sort descending
+    """Print the top-N comment targets ranked by blended rank_score."""
+    # Attach scores to posts and sort descending by final rank score
     ranked = list(zip(posts, scores))
-    ranked.sort(key=lambda x: x[1].score, reverse=True)
+    ranked.sort(key=lambda x: x[1].rank_score, reverse=True)
 
     # Filter to comment_targets only
     comment_targets = [(p, s) for p, s in ranked if s.post_type == "comment_target"]
@@ -213,9 +219,14 @@ def print_ranked_shortlist(posts: list[dict], scores: list, limit: int):
 
     for i, (post, sc) in enumerate(comment_targets[:limit], 1):
         text = (post.get("text") or "")[:120].replace("\n", " ")
-        print(f"\n  #{i:2d}  ─── score={sc.score:.4f}  f={sc.freshness:.2f}  v={sc.velocity:.2f}  "
+        gate = post.get("gate_score")
+        gate_str = f"  gate={gate:.2f}" if gate is not None else ""
+        print(f"\n  #{i:2d}  ─── rank={sc.rank_score:.4f}  heur={sc.score:.4f}{gate_str}  "
+              f"f={sc.freshness:.2f}  v={sc.velocity:.2f}  "
               f"r={sc.relevance:.2f}  o={sc.opportunity:.2f}  "
               f"tier={post.get('keyword_tier','?')}")
+        if post.get("gate_reason"):
+            print(f"  Gate:    {post.get('gate_reason')}")
         print(f"  Author:  {post.get('author_name','?')}")
         print(f"  URL:     {post.get('url','?')}")
         print(f"  Text:    {text}")
@@ -232,18 +243,100 @@ def print_ranked_shortlist(posts: list[dict], scores: list, limit: int):
     print()
 
 
+def write_shortlist_csv(posts: list[dict], scores: list, output_dir: str) -> Optional[str]:
+    """
+    Persist the ranked comment-target shortlist to
+    ``data/{client}/output/shortlist_{YYYY-MM-DD}.csv`` so the operator has a
+    usable artifact (not just stdout). Returns the path written, or None.
+    """
+    import csv
+
+    ranked = sorted(zip(posts, scores), key=lambda x: x[1].rank_score, reverse=True)
+    targets = [(p, s) for p, s in ranked if s.post_type == "comment_target"]
+    if not targets:
+        return None
+
+    os.makedirs(output_dir, exist_ok=True)
+    path = os.path.join(output_dir, f"shortlist_{date.today().isoformat()}.csv")
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["rank", "rank_score", "heuristic_score", "gate_score", "gate_reason",
+                    "freshness", "velocity", "relevance", "opportunity", "tier",
+                    "semantic", "author", "url", "text"])
+        for i, (p, s) in enumerate(targets, 1):
+            w.writerow([i, s.rank_score, s.score, p.get("gate_score", ""), p.get("gate_reason", ""),
+                        s.freshness, s.velocity, s.relevance, s.opportunity,
+                        p.get("keyword_tier", ""), p.get("semantic_score", ""),
+                        p.get("author_name", ""), p.get("url", ""),
+                        (p.get("text") or "").replace("\n", " ")])
+    logger.info("Shortlist (%d comment targets) written to %s", len(targets), path)
+    return path
+
+
+def write_comment_sheet(posts: list[dict], comments_map: dict, output_dir: str) -> Optional[str]:
+    """
+    Write the operator-facing comment sheet: each ranked comment target with its
+    URL, full post text, and the generated comment variants side by side — the
+    artifact used for manual comment placement on LinkedIn.
+
+    ``posts`` must already be in final rank order (highest first).
+    """
+    import csv
+
+    if not posts:
+        return None
+
+    max_variants = max((len(comments_map.get(p.get("id", ""), [])) for p in posts), default=0)
+    max_variants = max(max_variants, 1)
+
+    os.makedirs(output_dir, exist_ok=True)
+    path = os.path.join(output_dir, f"comment_sheet_{date.today().isoformat()}.csv")
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        # comment_1 is the judge's top pick (variants are stored best-first).
+        header = ["rank", "rank_score", "heuristic", "gate_score", "gate_reason",
+                  "tier", "author", "post_url", "post_text",
+                  "top_confidence", "top_reason", "safe_autopost"]
+        header += [f"comment_{i}" for i in range(1, max_variants + 1)]
+        header.append("flagged_any")
+        w.writerow(header)
+
+        for i, p in enumerate(posts, 1):
+            variants = comments_map.get(p.get("id", ""), [])
+            texts = [v.get("text", "") for v in variants]
+            top = variants[0] if variants else {}
+            row = [i, p.get("rank_score", ""), p.get("heuristic_score", ""),
+                   p.get("gate_score", ""), p.get("gate_reason", ""),
+                   p.get("keyword_tier", ""), p.get("author_name", ""),
+                   p.get("url", ""), (p.get("text") or "").replace("\n", " "),
+                   top.get("confidence", ""), top.get("top_reason", ""),
+                   top.get("safe_to_autopost", "")]
+            row += [texts[j] if j < len(texts) else "" for j in range(max_variants)]
+            row.append("yes" if any(v.get("flagged") for v in variants) else "")
+            w.writerow(row)
+
+    logger.info("Comment sheet (%d posts) written to %s", len(posts), path)
+    return path
+
+
 def main():
     parser = argparse.ArgumentParser(description="VVLeng LinkedIn Engagement Pipeline")
     parser.add_argument("--skip-collect", action="store_true", help="Skip Apify data collection")
     parser.add_argument("--skip-semantic", action="store_true",
                         help="Skip semantic filter + content filters (age/engagement/dedup)")
     parser.add_argument("--skip-llm", action="store_true", help="Skip LLM comment generation")
+    parser.add_argument("--no-relevance-gate", action="store_true",
+                        help="Disable the LLM relevance gate (on by default; also skipped under --skip-llm)")
     parser.add_argument("--dry-run", action="store_true", help="Print plan but don't persist")
     parser.add_argument("--client", type=str, default=None,
                         help="Client ID (overrides config.yaml active_client)")
     parser.add_argument("--keywords", type=str, default=None,
                         help="Comma-separated keywords (overrides client config)")
     args = parser.parse_args()
+
+    # Relevance gate runs by default; disabled explicitly or when no LLM spend
+    # is wanted (--skip-llm implies no LLM calls at all).
+    use_gate = (not args.no_relevance_gate) and (not args.skip_llm)
 
     # ── Load config (three-layer) ──────────────────────────────────────────
     from config_loader import load_config, ensure_client_dirs, build_niche_embedding_text
@@ -287,7 +380,9 @@ def main():
         max_posts = config.client.max_posts_per_keyword or config.defaults.max_posts_per_keyword
         actor_input = build_actor_input(post_actor, active_keywords, max_items=max_posts)
         logger.info("Running post-search actor %s...", post_actor)
-        raw_posts = run_actor(post_actor, actor_input, timeout_secs=240,
+        # Large multi-keyword runs (48 queries x 50 posts) can take 10-20 min;
+        # a short timeout would abort polling and trigger a costly full retry.
+        raw_posts = run_actor(post_actor, actor_input, timeout_secs=1800,
                               config=config)
         save_raw(raw_posts, "posts", raw_dir=config.raw_dir)
         posts = normalise_posts(raw_posts)
@@ -309,9 +404,13 @@ def main():
                 profiles = []
     else:
         logger.info("── Phase 1: Collect (SKIPPED) ──")
-        # When skipping collection, try to reload previously saved posts
+        # When skipping collection, reload the most recently saved raw posts
+        # file (by modification time) — covers both posts.json and the
+        # timestamped posts_*.json that save_raw() writes.
+        import glob
         raw_dir = config.raw_dir
-        posts_file = os.path.join(raw_dir, "posts.json")
+        candidates = glob.glob(os.path.join(raw_dir, "posts*.json"))
+        posts_file = max(candidates, key=os.path.getmtime) if candidates else os.path.join(raw_dir, "posts.json")
         if os.path.exists(posts_file):
             with open(posts_file, "r", encoding="utf-8") as f:
                 raw_posts_data = json.load(f)
@@ -352,17 +451,58 @@ def main():
         # Print filter funnel
         print_filter_funnel(raw_count, normalised_count, semantic_dropped, content_stats)
 
+        # ── LLM relevance gate over the survivors (on by default) ───────
+        # Heuristics can't judge ICP fit / intent. One batched LLM pass does.
+        if use_gate and filtered_posts:
+            logger.info("── Phase 2: Process — LLM Relevance Gate ──")
+            from processor.relevance_gate import score_relevance
+
+            gate = score_relevance(filtered_posts, config)
+            kept = []
+            for p, g in zip(filtered_posts, gate):
+                p["gate_score"] = g["composite"]
+                p["gate_keep"] = g["keep"]
+                p["gate_reason"] = g["reason"]
+                if g["keep"]:
+                    kept.append(p)
+            logger.info("Relevance gate kept %d / %d survivors", len(kept), len(filtered_posts))
+            filtered_posts = kept
+
         # Score + rank
         logger.info("── Phase 2: Process — Scoring + Ranking ──")
         from processor.post_scorer import score_post, PostScore
 
         scores = [score_post(p, config) for p in filtered_posts]
+
+        # Blend the gate's ICP/intent judgement into the ranking. The heuristic
+        # captures timing & engagement mechanics; the gate captures whether the
+        # post is genuinely worth commenting on. 50/50 surfaces high-ICP posts
+        # the freshness-weighted heuristic would otherwise bury.
+        for p, s in zip(filtered_posts, scores):
+            g = p.get("gate_score")
+            if use_gate and g is not None:
+                # The gate already judged commentability with full context, so
+                # don't let the heuristic min-score threshold veto a post the
+                # gate explicitly kept. (Mechanical/noise avoids — >100 comments,
+                # recruiting, empty — are left untouched.)
+                if s.post_type == "avoid" and s.avoid_reason.startswith("below comment threshold"):
+                    s.post_type = "comment_target"
+                    s.avoid_reason = ""
+                s.rank_score = round(0.5 * s.score + 0.5 * float(g), 4)
+            else:
+                s.rank_score = s.score
+            # Stash ranking onto the post dict so the comment sheet has it
+            p["rank_score"] = s.rank_score
+            p["heuristic_score"] = s.score
+
         limit_comments = config.client.action_limits.comments_per_day
         print_ranked_shortlist(filtered_posts, scores, limit_comments)
+        if not args.dry_run:
+            write_shortlist_csv(filtered_posts, scores, config.output_dir)
 
-        # Only keep top-N comment_targets for LLM generation
+        # Only keep top-N comment_targets for LLM generation (by blended rank)
         ranked = list(zip(filtered_posts, scores))
-        ranked.sort(key=lambda x: x[1].score, reverse=True)
+        ranked.sort(key=lambda x: x[1].rank_score, reverse=True)
         comment_targets = [(p, s) for p, s in ranked if s.post_type == "comment_target"]
         top_targets = comment_targets[:limit_comments]
 
@@ -419,6 +559,13 @@ def main():
         logger.info("── Phase 3: Generate Content (SKIPPED) ──")
     else:
         logger.info("── Phase 3: Generate Content (no posts to process) ──")
+
+    # Operator comment sheet — ranked targets + URL + comment variants for
+    # manual placement on LinkedIn.
+    if comments_map and for_llm_posts and not args.dry_run:
+        sheet_path = write_comment_sheet(for_llm_posts, comments_map, config.output_dir)
+        if sheet_path:
+            logger.info("Comment sheet ready for manual placement: %s", sheet_path)
 
     # =====================================================================
     # 6. PLAN

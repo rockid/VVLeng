@@ -1,0 +1,3 @@
+Evaluate these posts and return the JSON array (same order, one object per post):
+
+{posts_block}

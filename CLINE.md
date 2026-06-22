@@ -4,10 +4,10 @@
 - This is a Python-based LinkedIn engagement pipeline
 - All architecture documents are in the `/docs` folder
 - **Read these at session start, in this order:**
-  1. `docs/linkedin_engagement_system_architecture.md` — v1.0 base
+  1. `docs/VVLeng_architecture.md` — v1.0 base
   2. `docs/VVLeng_architecture_amendment_combined.md` — supersedes all previous amendments
   3. `docs/architecture_backlog.md` — for awareness only, do NOT implement anything from here unless explicitly instructed
-- Active client ID: `joinee`
+- Active client ID: `Joinee` (config file `clients/Joinee.yaml`, data under `data/Joinee/`)
 - Re-read all three documents at the start of every session before touching any files
 
 ---
@@ -111,8 +111,8 @@ If a user instruction in the current session conflicts with the architecture doc
 - **Never hardcode API keys, client IDs, or paths** — always read from config
 - **Never modify `.env`** — only create or update `.env.example`
 - Config hierarchy: `.env` (secrets) → `config.yaml` (defaults) → `clients/{client_id}.yaml` (client overrides)
-- Active client is set in `config.yaml` under `active_client: joinee`, overridable with `--client` CLI flag
-- All client data goes under `data/joinee/` — create on first run, never hardcode path
+- Active client is set in `config.yaml` under `active_client: Joinee`, overridable with `--client` CLI flag
+- All client data goes under `data/Joinee/` — create on first run, never hardcode path
 - Before creating any new file, check if it already exists and read it first
 - **Backlog items** (`docs/architecture_backlog.md`) are read-only reference — never implement anything from the backlog without explicit instruction
 

@@ -19,17 +19,44 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-# ── Heuristic pattern for celebratory / non-actionable posts ──────────────
-_CELEBRATORY_PATTERNS = re.compile(
-    r"\b("
-    r"hiring|new role|new chapter|thrilled to announce|excited to announce"
-    r"|excited to share|pleased to announce|happy to share that I"
-    r"|I am thrilled|I'm thrilled|joining the team|joined the team"
-    r"|promoted to|work anniversary|celebrating|grateful for"
-    r"|congratulations|internship|scholarship|graduated|graduation"
-    r"|open to work|open to opportunities"
-    r")\b",
-    re.IGNORECASE,
+# ── Recruiting / job-post patterns ────────────────────────────────────────
+# These dominate the noise in keyword-sourced LinkedIn data: the search
+# vocabulary ("community manager", "member engagement") overlaps heavily with
+# job ads, which a semantic filter cannot distinguish. Catch them by phrasing.
+_RECRUITING_PATTERNS = re.compile(
+    r"(?i)("
+    r"\bhiring\b|\bnow hiring\b|\bwe(?:'re| are)\s+hiring\b|\bis hiring\b"
+    r"|\b(?:looking|searching|on the hunt)\s+for\s+(?:a|an|our|my|some)\b"
+    r"|\bseeking\s+(?:a|an|our|experienced|talented|motivated)\b"
+    r"|\bjoin\s+(?:my|our|the|a)\s+(?:team|growing team)\b"
+    r"|\bjoin\s+a\s+\w+\s+team\b"
+    r"|\b(?:open|new)\s+(?:role|roles|position|positions|opening|openings|vacancy|vacancies)\b"
+    r"|\b(?:we(?:'re| are))\s+looking\s+for\b"
+    r"|\b(?:is|are)\s+(?:expanding|growing)\s+(?:its|our|the|their)\s+team\b"
+    r"|\bexpanding\s+(?:its|our|their)\s+\w+\s+team\b"
+    r"|\b(?:apply|applications)\s+(?:now|here|today|via|by|before)\b"
+    r"|\b(?:send|share|drop)\s+(?:me\s+)?your\s+(?:cv|resume)\b"
+    r"|\bthis (?:role|position) (?:is|requires|offers)\b"
+    r"|\bto hire (?:a|an|our|their)\b|\bwe(?:'re| are) recruiting\b"
+    r"|\bjoin us as\b|\bremote job\b|\bjob (?:portals?|boards?)\b"
+    r")"
+)
+
+# ── Announcement / personal-milestone patterns ────────────────────────────
+_ANNOUNCEMENT_PATTERNS = re.compile(
+    r"(?i)("
+    r"\b(?:excited|thrilled|delighted|pleased|proud|happy|honou?red)\s+to\s+"
+    r"(?:announce|share|welcome|join|be joining|be starting)\b"
+    r"|\bwelcome\b.{0,40}\bto the (?:team|family)\b"
+    r"|\b(?:i(?:'ve| have)|i(?:'m| am))\s+(?:joined|joining|been appointed|now)\b"
+    r"|\bappointed\s+as\b"
+    r"|\bnew (?:role|chapter|position|job|adventure|journey)\b"
+    r"|\bpromoted to\b|\bwork anniversary\b|\bcelebrating\b|\bgrateful for\b"
+    r"|\b\d+(?:st|nd|rd|th)\s+(?:work\s+)?anniversary\b|\banniversary at\b|\bmarks my\b"
+    r"|\bcongratulations\b"
+    r"|\binternship\b|\bscholarship\b|\bgraduated\b|\bgraduation\b"
+    r"|\bopen to (?:work|opportunities)\b"
+    r")"
 )
 
 
@@ -62,6 +89,9 @@ class PostScore:
     opportunity: float = 0.0
     post_type: str = "comment_target"
     avoid_reason: str = ""
+    # Final ranking score. Equals ``score`` unless the LLM relevance gate ran,
+    # in which case it blends heuristic and gate composite (set in the pipeline).
+    rank_score: float = 0.0
 
 
 def _compute_freshness(posted_at_str: str | None) -> float:
@@ -149,15 +179,34 @@ def _compute_opportunity(post: dict) -> float:
 
 def _compute_relevance(post: dict) -> float:
     """
-    Topic relevance based on keyword tier.
+    Topic relevance — a blend of keyword-tier weight and the actual semantic
+    similarity to the niche (when available from the semantic filter).
 
+    Keyword tier alone only says *which bucket* a post matched; the semantic
+    score says *how on-topic the text actually is*. Blending both is far more
+    discriminating than tier alone and is the main lever for surfacing posts
+    genuinely worth commenting on.
+
+    Tier weights:
     - tier1  → 1.0   (direct practitioner vocabulary)
     - tier2  → 0.7   (adjacent — broader, more noise)
     - tier3  → 0.85  (platform names — product-aware practitioners)
     - unknown → 0.4
+
+    The ``semantic_score`` (raw cosine, typically ~0.30–0.60 for relevant posts)
+    is normalised onto 0–1 across that operating band. If no semantic score is
+    present (e.g. semantic filter skipped), we fall back to tier weight alone.
     """
     tier = (post.get("keyword_tier") or "tier1").lower()
-    return {"tier1": 1.0, "tier2": 0.7, "tier3": 0.85}.get(tier, 0.4)
+    tier_w = {"tier1": 1.0, "tier2": 0.7, "tier3": 0.85}.get(tier, 0.4)
+
+    sem = post.get("semantic_score")
+    if sem is None:
+        return tier_w
+
+    # Map cosine 0.30 → 0.0 and 0.55 → 1.0, clamped.
+    sem_norm = min(max((float(sem) - 0.30) / 0.25, 0.0), 1.0)
+    return round(0.5 * tier_w + 0.5 * sem_norm, 4)
 
 
 def _is_competitor_post(post: dict, config) -> bool:
@@ -172,9 +221,20 @@ def _is_competitor_post(post: dict, config) -> bool:
     return False
 
 
-def _is_celebratory(text: str) -> bool:
-    """Return True if the post text matches celebratory/non-actionable patterns."""
-    return bool(_CELEBRATORY_PATTERNS.search(text))
+def _noise_reason(text: str) -> str:
+    """
+    Classify a post as recruiting / announcement noise.
+
+    Returns a short avoid-reason string, or "" if the post is not obviously
+    non-actionable. These two classes (job ads and self-announcements) are the
+    dominant noise in keyword-sourced LinkedIn data and are never worth a
+    relationship-building comment.
+    """
+    if _RECRUITING_PATTERNS.search(text):
+        return "recruiting / job post"
+    if _ANNOUNCEMENT_PATTERNS.search(text):
+        return "announcement / non-actionable"
+    return ""
 
 
 def score_post(post: dict, config) -> PostScore:
@@ -201,8 +261,9 @@ def score_post(post: dict, config) -> PostScore:
     if comments > 100:
         return PostScore(post_type="avoid", avoid_reason=">100 comments")
 
-    if _is_celebratory(text):
-        return PostScore(post_type="avoid", avoid_reason="celebratory / non-actionable")
+    noise = _noise_reason(text)
+    if noise:
+        return PostScore(post_type="avoid", avoid_reason=noise)
 
     if _is_competitor_post(post, config):
         return PostScore(post_type="avoid", avoid_reason="competitor author")
@@ -237,13 +298,19 @@ def score_post(post: dict, config) -> PostScore:
     follower_threshold = getattr(config.client.scoring, "influencer_follower_threshold", 5000)
     author_followers = post.get("author_followers", 0) or 0
 
+    # Minimum composite a post must clear to be worth a comment. Anything below
+    # this is noise — fresh enough to pass the age filter but not a strong
+    # engagement opportunity. Configurable per client.
+    min_ct = getattr(config.client.scoring, "min_comment_target_score", 0.40)
+
+    avoid_reason = ""
     if is_past_comment_window and relevance >= 0.85 and author_followers >= follower_threshold:
         post_type = "repost_candidate"
-    elif composite > 0.0:
+    elif composite >= min_ct:
         post_type = "comment_target"
     else:
         post_type = "avoid"
-        avoid_reason = "zero composite score"
+        avoid_reason = f"below comment threshold ({composite:.2f} < {min_ct:.2f})"
 
     return PostScore(
         score=round(composite, 4),
@@ -253,4 +320,5 @@ def score_post(post: dict, config) -> PostScore:
         opportunity=round(opportunity, 4),
         post_type=post_type,
         avoid_reason=avoid_reason if post_type == "avoid" else "",
+        rank_score=round(composite, 4),  # default; pipeline blends in gate when run
     )

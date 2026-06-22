@@ -1,0 +1,9 @@
+Post by {author_headline}:
+"""
+{post_text}
+"""
+
+Candidate comments:
+{variants_block}
+
+Return the JSON object now.

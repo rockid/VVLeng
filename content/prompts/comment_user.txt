@@ -1,4 +1,8 @@
-Post: "{post_text}"
-Author: {author_headline}
+Post by {author_headline}:
+"""
+{post_text}
+"""
 
-Write {n_variants} comment variants.
+Write {n_variants} distinct comment variants for the post above, following every rule.
+Give each variant a different angle. Separate variants with a line containing only ===
+Output only the comments and the === separators — nothing else.

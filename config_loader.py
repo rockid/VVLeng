@@ -92,6 +92,9 @@ class ClientScoringConfig:
     tier_b_threshold: float = 0.40
     influencer_follower_threshold: int = 5000
     min_score_for_signal: int = 6
+    # Minimum composite post score required to qualify as a comment_target.
+    # Raise it to make the shortlist more selective.
+    min_comment_target_score: float = 0.40
 
 
 @dataclass
@@ -270,7 +273,12 @@ def load_config(client_id_override: str = None) -> AppConfig:
         kw = client_obj.keywords
         all_kw = list(kw.tier1_direct) + list(kw.tier2_lateral)
         client_obj.seed_keywords = all_kw
-    if client_obj.max_posts_per_keyword <= 0:
+    # The client YAML expresses volume via collection.posts_per_keyword; honour
+    # it as the source of truth for posts-per-keyword (the bare
+    # max_posts_per_keyword field is a v1.0 alias with no YAML key of its own).
+    if client_obj.collection.posts_per_keyword:
+        client_obj.max_posts_per_keyword = client_obj.collection.posts_per_keyword
+    elif client_obj.max_posts_per_keyword <= 0:
         client_obj.max_posts_per_keyword = client_obj.collection.posts_per_keyword
 
     # Build derived sub-paths

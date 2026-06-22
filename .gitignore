@@ -12,11 +12,15 @@ build/
 venv/
 env/
 
-# Data
-data/raw/*
-data/plans/*
-data/errors/*
-data/engagement.db
+# Data — all generated client data (raw, filtered, outputs, plans, db).
+# Client-namespaced (data/{client}/...) included; deliverables are regenerable.
+data/
+
+# Backups
+*.bak
+
+# Run logs — may contain API tokens in logged URLs. NEVER commit.
+*.log
 
 # IDE
 .vscode/

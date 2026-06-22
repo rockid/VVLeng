@@ -58,9 +58,9 @@ def build_actor_input(actor_id: str, keywords: list[str], max_items: int = 30) -
     if "harvestapi" in safe_id or "linkedin-post-search" in safe_id:
         return {
             "searchQueries": keywords,
-            "sortBy": "date",
-            "postedLimit": "week",
-            "maxPosts": max_items,
+            "sortBy": "relevance",   # most-relevant first (was "date")
+            "postedLimit": "week",   # 1-week collection window
+            "maxPosts": max_items,   # results per search query
             "scrapeReactions": False,
             "scrapeComments": False,
         }
