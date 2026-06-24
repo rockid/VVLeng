@@ -1,5 +1,25 @@
 # VVLeng Progress Log
 
+## 2026-06-24 09:58
+Phase: infra | Step: org-framework adoption — fold CLINE.md into .clinerules/, smoke test, git-permissions change (separate request)
+Status: DONE
+Files changed: .clinerules/00-project-overview.md through 06-progress-log.md (NEW), CLAUDE.md (NEW, @imports clinerules),
+  OWNER-ACTIONS.md (NEW), .cline-tasks/README.md + TASK-1.md (NEW — dry-run/mock gap tracked, not retrofitted),
+  CLINE.md (deleted — content folded into .clinerules/, per user's explicit choice of "fold in, retire CLINE.md").
+  Unrelated to this branch: ~/.claude/settings.json (global, separate from this repo) — added permissions.allow:
+  ["Bash(git *)"] per explicit user request, scoped global+all-git-subcommands per user's AskUserQuestion answers.
+Test result: PASS — `PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python run_pipeline.py --client Joinee --skip-collect --skip-llm`
+  exited cleanly (code 0). Reloaded 2301 posts, semantic filter 498 kept, content filters → 219 kept, plan written
+  (0 actions — expected, skip_llm suppresses comment-gen so no comment_targets are promoted). No live Apify/LLM calls
+  (flags confirmed skip_collect=True skip_llm=True); only network traffic was free HuggingFace model-cache HEAD requests
+  for the local sentence-transformers MiniLM model.
+Notes: Branch infra/adopt-org-framework. Working tree also has user's own pre-existing unrelated in-progress changes
+  (deleted docs/session_handoff_2026-06-14_updated.md, modified scratch/tier1_tier2_output_2026-06-17.txt, several
+  untracked scratch/*.py + docs/Ideas.md + docs/linkedin_post_architecture_v1.md) — left untouched, not staged, out of
+  scope for this adoption task. Next: stage+commit only the adoption files (.clinerules/*, CLAUDE.md, OWNER-ACTIONS.md,
+  .cline-tasks/*, CLINE.md deletion) as one conventional commit, update _org-framework/ADOPTION.md's per-project ledger
+  with a VV_Leng entry.
+
 ## 2026-06-22 (SESSION END — docs + commit)
 Phase: 3/4 | Step: Wrap-up — runbook doc, gitignore hardening, commit+push
 Status: DONE
