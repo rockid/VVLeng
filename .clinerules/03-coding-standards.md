@@ -21,12 +21,13 @@ def some_call(...):
   round numbers, a `[DRY_RUN stub]` string). Pick one convention per project and
   keep it consistent.
 - New external integrations follow the *existing* shape in the project, not a new
-  one. **There is currently no reference implementation of this pattern in
-  VV_Leng** — `collector/apify_client.py` and `content/llm_client.py` are both
-  live-only with no `dry_run` branch. Don't invent a one-off mock for a new
-  integration while this gap is open; see `.cline-tasks/TASK-1.md`. New code
-  should still route all settings through `config_loader.py` as everything else
-  does.
+  one. **Reference implementation (added 2026-06-24, TASK-1):**
+  `collector/apify_client.py`'s `run_actor()` and `content/llm_client.py`'s
+  `complete()` both check `config.dry_run` at the top of the function and return
+  mocked, unmistakably-fake output (`[DRY_RUN MOCK]` / `[DRY_RUN MOCK LLM]`
+  markers) instead of making the real call. Follow that shape for any new
+  external/paid integration. `AppConfig.dry_run` (set via `run_pipeline.py
+  --dry-run`) is the single flag every call site reads — don't invent a second one.
 
 ## Phase discipline and conflict resolution
 

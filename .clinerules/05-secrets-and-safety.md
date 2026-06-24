@@ -18,10 +18,12 @@
 
 ## Cost discipline
 
-- **There is no dry-run default in VV_Leng today** (see `00-project-overview.md` —
-  tracked as `.cline-tasks/TASK-1.md`). The free-iteration path is the explicit
-  flag combination `--skip-collect --skip-llm`, not a config default. Use it for
-  routine development; only drop the flags to verify a specific change against the
+- `--dry-run` mocks both `collector/apify_client.py` and `content/llm_client.py`
+  (no live call, no API key needed) and implies `--no-persist`. This is the
+  free-iteration default for routine development; `--skip-collect --skip-llm`
+  (add `--no-relevance-gate` to also silence the gate's LLM calls) remains the way
+  to reprocess already-collected data without touching the collect/LLM stages at
+  all. Only drop `--dry-run`/the skip flags to verify a specific change against the
   real Apify/LLM call, and only with the user's awareness it costs money.
 - Live calls (LLM, scrapers, paid APIs) cost real money per call. Avoid test loops
   or retry logic that could fan out into many live calls without the user's

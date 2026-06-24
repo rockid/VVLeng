@@ -35,6 +35,9 @@ python run_pipeline.py --client Joinee --skip-collect
 # Free reprocess, no LLM at all (no gate, no comments):
 python run_pipeline.py --client Joinee --skip-collect --skip-llm --no-relevance-gate
 
+# Free full-pipeline dry run — mocks Apify + LLM calls, zero keys needed, no persistence:
+python run_pipeline.py --client Joinee --dry-run
+
 # Build the operator comment UI from the latest comment sheet:
 python scratch/build_comment_ui.py
 
@@ -44,8 +47,10 @@ python scratch/topic_ideas.py
 > Windows: prefix with `PYTHONUTF8=1` (post text/emoji crash cp1252 stdout otherwise).
 
 **Flags:** `--skip-collect` (reuse newest saved `data/{client}/raw/posts*.json`), `--skip-llm`
-(no comments; also suppresses the gate), `--no-relevance-gate` (gate off), `--dry-run`,
-`--keywords "a,b"`, `--client X`.
+(no comments; also suppresses the gate), `--no-relevance-gate` (gate off), `--dry-run`
+(mocks Apify + LLM calls — zero cost, zero keys — implies `--no-persist`), `--no-persist`
+(print plan instead of writing CSV/plan files; live calls still fire), `--keywords "a,b"`,
+`--client X`.
 
 ## Outputs (`data/Joinee/output/`)
 

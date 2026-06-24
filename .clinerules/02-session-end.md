@@ -15,9 +15,10 @@ understandable cold.
 ## 1. Verify nothing is broken
 
 - [ ] Re-run the smoke test (see `01-session-start.md` §5). Confirm it exits
-      cleanly. This project's calls are live, not mocked (see
-      `00-project-overview.md` "the one rule") — confirm you didn't trigger an
-      unintended paid Apify/LLM call while verifying.
+      cleanly. Verifying with `--dry-run` (mocked, free) is preferred over a live
+      run — confirm you didn't trigger an unintended paid Apify/LLM call while
+      verifying (i.e. you didn't drop `--dry-run`/`--skip-collect --skip-llm`
+      without meaning to).
 - [ ] If you changed a shared schema/shape (`db/models.py`, the post/comment dict
       shapes passed between pipeline stages), confirm every consumer still
       validates against the new shape — schema changes are the highest-blast-radius

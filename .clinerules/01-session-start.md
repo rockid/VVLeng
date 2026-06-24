@@ -32,13 +32,14 @@ picking up cold.
 
 ## 2. Confirm mode before running anything
 
-- [ ] There is **no project-wide dry-run default** — `collector/apify_client.py`
-      and `content/llm_client.py` call out live with no mock path (tracked gap,
-      `.cline-tasks/TASK-1.md`). The zero-cost equivalent is the flag combination
+- [ ] `--dry-run` mocks both `collector/apify_client.py` and `content/llm_client.py`
+      (no live call, no API key needed) and implies `--no-persist` — this is the
+      free, zero-key way to exercise the full pipeline. `--no-persist` alone
+      reproduces the old persistence-only behavior with live calls still firing.
       `--skip-collect --skip-llm` (add `--no-relevance-gate` to also silence the
-      gate's LLM calls). `--dry-run` alone only suppresses persistence — it does
-      **not** stop live Apify/LLM calls.
-- [ ] **Never run without `--skip-collect --skip-llm` (or omit them) without the
+      gate's LLM calls) remains the way to reprocess already-collected data without
+      touching the collect/LLM stages.
+- [ ] **Never run without `--dry-run` or `--skip-collect --skip-llm` without the
       user explicitly asking for a live/paid run.**
 
 ## 3. Re-derive state, don't assume it
