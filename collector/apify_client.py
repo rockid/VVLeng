@@ -26,13 +26,77 @@ def _sanitize_actor_id(actor_id: str) -> str:
     return actor_id.replace("/", "~")
 
 
+_MOCK_MARKER = "[DRY_RUN MOCK]"
+_MOCK_POSTS_PER_QUERY = 2  # keeps mock volume bounded regardless of keyword count
+
+
+def _mock_run_actor(actor_id: str, input_payload: dict) -> list[dict]:
+    """
+    Fake dataset items shaped like the real harvestapi/linkedin-post-search
+    output (see tests/fixtures/sample_post_search.json) — used in dry-run mode
+    so the full collect→normalise→filter→rank flow can be exercised for free.
+    Every field that downstream code reads is populated; everything else is
+    omitted rather than guessed.
+    """
+    logger.info("DRY_RUN: mocking actor %s — no live Apify call made", actor_id)
+    queries = input_payload.get("searchQueries") or input_payload.get("keywords") or ["mock"]
+    now = datetime.utcnow()
+    items: list[dict] = []
+    for query in queries:
+        for _ in range(_MOCK_POSTS_PER_QUERY):
+            idx = len(items) + 1
+            items.append({
+                "type": "post",
+                "id": f"mock-{idx}",
+                "linkedinUrl": f"https://www.linkedin.com/posts/dry-run-mock-{idx}",
+                "content": (
+                    f"{_MOCK_MARKER} Simulated LinkedIn post body #{idx} used to "
+                    "exercise the pipeline without a live Apify call. Lorem ipsum "
+                    "dolor sit amet, consectetur adipiscing elit, sed do eiusmod "
+                    "tempor incididunt ut labore et dolore magna aliqua."
+                ),
+                "author": {
+                    "id": f"mock-author-{idx}",
+                    "name": f"{_MOCK_MARKER} Author {idx}",
+                    "publicIdentifier": f"dry-run-mock-author-{idx}",
+                    "linkedinUrl": f"https://www.linkedin.com/in/dry-run-mock-author-{idx}",
+                    "info": f"{_MOCK_MARKER} Simulated headline",
+                },
+                "postedAt": {
+                    "timestamp": int(now.timestamp() * 1000),
+                    "date": now.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                },
+                "postImages": [],
+                "engagement": {
+                    "id": f"mock-engagement-{idx}",
+                    "likes": 11,
+                    "comments": 2,
+                    "shares": 0,
+                },
+                "query": {
+                    "sortBy": input_payload.get("sortBy", "relevance"),
+                    "page": 1,
+                    "search": query,
+                    "postedLimit": input_payload.get("postedLimit", "week"),
+                },
+                "_mock": True,
+            })
+    return items
+
+
 def run_actor(actor_id: str, input_payload: dict, timeout_secs: int = 300,
               config: Optional[object] = None) -> list[dict]:
     """
     Trigger an Apify actor, poll until finished (or timeout), return dataset items.
     Raises ApifyError after MAX_RETRIES attempts.
     Accepts an optional config object with .apify_token attribute.
+
+    If ``config.dry_run`` is set, returns mocked items instead — no live call,
+    no token required.
     """
+    if config is not None and getattr(config, "dry_run", False):
+        return _mock_run_actor(actor_id, input_payload)
+
     last_error = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:

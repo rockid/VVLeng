@@ -10,7 +10,9 @@ Usage:
     python run_pipeline.py --skip-collect                   # Skip Apify collection
     python run_pipeline.py --skip-semantic                  # Skip semantic filter + content filters
     python run_pipeline.py --skip-llm                       # Skip LLM comment generation
-    python run_pipeline.py --dry-run                        # Print plan but don't persist
+    python run_pipeline.py --dry-run                        # Mock all Apify/LLM calls (zero cost, zero keys);
+                                                             #   implies --no-persist
+    python run_pipeline.py --no-persist                     # Print plan but don't persist; live calls still fire
 """
 
 import os
@@ -327,7 +329,12 @@ def main():
     parser.add_argument("--skip-llm", action="store_true", help="Skip LLM comment generation")
     parser.add_argument("--no-relevance-gate", action="store_true",
                         help="Disable the LLM relevance gate (on by default; also skipped under --skip-llm)")
-    parser.add_argument("--dry-run", action="store_true", help="Print plan but don't persist")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Mock all external Apify/LLM calls (zero cost, zero API keys needed) "
+                             "and skip persistence — implies --no-persist")
+    parser.add_argument("--no-persist", action="store_true",
+                        help="Print plan to stdout instead of writing CSV/plan files; "
+                             "live Apify/LLM calls still fire unless --dry-run is also set")
     parser.add_argument("--client", type=str, default=None,
                         help="Client ID (overrides config.yaml active_client)")
     parser.add_argument("--keywords", type=str, default=None,
@@ -338,17 +345,21 @@ def main():
     # is wanted (--skip-llm implies no LLM calls at all).
     use_gate = (not args.no_relevance_gate) and (not args.skip_llm)
 
+    # --dry-run mocks external calls AND implies --no-persist (a dry run
+    # should never write to disk either).
+    no_persist = args.no_persist or args.dry_run
+
     # ── Load config (three-layer) ──────────────────────────────────────────
     from config_loader import load_config, ensure_client_dirs, build_niche_embedding_text
 
-    config = load_config(client_id_override=args.client)
+    config = load_config(client_id_override=args.client, dry_run=args.dry_run)
     ensure_client_dirs(config)
 
     logger.info("=" * 60)
     logger.info("VVLeng Pipeline — %s", datetime.utcnow().isoformat())
     logger.info("Client: %s", config.client_id)
-    logger.info("Flags: skip_collect=%s, skip_semantic=%s, skip_llm=%s, dry_run=%s",
-                args.skip_collect, args.skip_semantic, args.skip_llm, args.dry_run)
+    logger.info("Flags: skip_collect=%s, skip_semantic=%s, skip_llm=%s, dry_run=%s, no_persist=%s",
+                args.skip_collect, args.skip_semantic, args.skip_llm, args.dry_run, no_persist)
     logger.info("=" * 60)
 
     # ── Determine keywords ─────────────────────────────────────────────────
@@ -497,7 +508,7 @@ def main():
 
         limit_comments = config.client.action_limits.comments_per_day
         print_ranked_shortlist(filtered_posts, scores, limit_comments)
-        if not args.dry_run:
+        if not no_persist:
             write_shortlist_csv(filtered_posts, scores, config.output_dir)
 
         # Only keep top-N comment_targets for LLM generation (by blended rank)
@@ -562,7 +573,7 @@ def main():
 
     # Operator comment sheet — ranked targets + URL + comment variants for
     # manual placement on LinkedIn.
-    if comments_map and for_llm_posts and not args.dry_run:
+    if comments_map and for_llm_posts and not no_persist:
         sheet_path = write_comment_sheet(for_llm_posts, comments_map, config.output_dir)
         if sheet_path:
             logger.info("Comment sheet ready for manual placement: %s", sheet_path)
@@ -581,7 +592,7 @@ def main():
         config=config,
     )
 
-    if args.dry_run:
+    if no_persist:
         print(json.dumps(plan, indent=2, ensure_ascii=False))
     else:
         path = write_plan(plan, plans_dir=config.plans_dir)
