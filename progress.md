@@ -1,5 +1,37 @@
 # VVLeng Progress Log
 
+## 2026-06-24 12:10 (SESSION END)
+Phase: infra | Step: TASK-1 close-out — commit, secrets check, final smoke re-run
+Status: DONE
+Files changed: none this entry (commit/verification only — see 11:45 entry for the
+  actual diff)
+Test result: PASS — re-ran `--skip-collect --skip-llm` smoke test against the final
+  committed tree (exit 0; log line confirmed `dry_run=False, no_persist=False`,
+  reloaded 96 posts, tagged 40 tier-1/56 tier-2, ran clean through semantic filter).
+  pytest tests/ 16/16 passed (run pre-commit, in the 11:45 entry).
+Notes: Committed TASK-1 as 4 logical commits on infra/add-dry-run-mode (user chose
+  this granularity via AskUserQuestion): 1b70f57 docs(tasks) decision record,
+  9b85767 feat(pipeline) code, 3507e3d docs(cline) doc updates, aa7bd8c
+  docs(progress) log. Secrets check: `git diff` across all 4 commits scanned for
+  key/token/secret patterns — only doc-text mentions of "API key" as a heading/
+  variable name, no actual credentials; `.env` never staged/touched in any commit.
+  Confirmed master untouched (`git merge-base --is-ancestor` → not merged, as
+  expected — work stayed on the feature branch). Cleaned up a second stray
+  verification-output file (smoke_test_close.txt) before leaving the tree clean.
+  User's own pre-existing unrelated changes (deleted
+  docs/session_handoff_2026-06-14_updated.md, modified
+  scratch/tier1_tier2_output_2026-06-17.txt, untracked scratch/*.py/*.json,
+  docs/Ideas.md, docs/linkedin_post_architecture_v1.md) confirmed still untouched/
+  unstaged — final git status matches session-start status exactly for these files.
+  Branch NOT pushed, no PR opened (both deferred — pushing/opening a PR is a
+  visible-to-others action; live Apify/LLM spot-check needs the user's cost
+  go-ahead per TASK-1's own constraint). Session ends here cleanly: nothing
+  uncommitted that was intentionally changed this session, smoke test passes,
+  docs are honest, .clinerules/00-project-overview.md status table is current
+  (no further staleness found this session beyond what TASK-1 itself fixed).
+  Next session should start at: push infra/add-dry-run-mode + open PR (or do the
+  live spot-check first, if the user wants that before opening the PR).
+
 ## 2026-06-24 11:45
 Phase: infra | Step: Implement TASK-1 (dry-run/mock mode) on branch infra/add-dry-run-mode
 Status: DONE
