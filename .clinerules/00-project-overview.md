@@ -20,7 +20,7 @@ first, it reflects reality more closely than the original architecture doc.
 
 | Area / Stage | Status | What it does |
 |---|---|---|
-| Collect (Apify) | ✅ built | `harvestapi/linkedin-post-search`, live-only — no mock mode (see "the one rule" below) |
+| Collect (Apify) | ✅ built | `harvestapi/linkedin-post-search`; supports `--dry-run` mock mode (see "the one rule" below) |
 | Tier tagging | ✅ built | Tags posts tier1/tier2 by which search keyword found them |
 | Semantic filter | ✅ built | Batched MiniLM embedding filter, drops off-niche/blocked/too-short |
 | Content filters | ✅ built | Max age, per-tier min engagement, duplicate text |
@@ -65,9 +65,9 @@ VV_Leng/
   (pointed at the laozhang.ai OpenAI-compatible gateway), `sentence-transformers`
   (semantic filter), `scikit-learn`/`numpy` (scoring), `sqlalchemy`+`alembic` (DB,
   built but not wired), `streamlit` (dashboard), `pytest`.
-- External services: **Apify** (LinkedIn post search/scrape — wired, live-only) and
-  an **LLM gateway** via laozhang.ai (model configurable per call — wired, live-only).
-  Both are real paid calls with no mock path today.
+- External services: **Apify** (LinkedIn post search/scrape) and an **LLM gateway**
+  via laozhang.ai (model configurable per call). Both are real paid calls in live
+  mode, both support a free mock mode via `--dry-run` (see below).
 
 ## The one rule that matters most
 
@@ -76,10 +76,12 @@ API, DB) must work in both a real mode and a free `dry_run` mock mode from the s
 call site**, so the project is runnable and testable with zero keys and zero cost.
 See `03-coding-standards.md` for the pattern.
 
-**VV_Leng does not yet honor this for its two paid integrations.**
-`collector/apify_client.py` and `content/llm_client.py` have no mock path — the
-existing `--dry-run` CLI flag only suppresses persistence, it does not stop the
-live calls. The actual zero-cost path today is `--skip-collect --skip-llm` (and
-`--no-relevance-gate` to also skip the gate's LLM calls). Don't run the pipeline
-without those flags unless you intend to spend money. This gap is tracked as
-`.cline-tasks/TASK-1.md` rather than retrofitted as part of this adoption.
+**VV_Leng honors this via `--dry-run`** (added 2026-06-24, TASK-1): it mocks both
+`collector/apify_client.py`'s `run_actor()` and `content/llm_client.py`'s
+`complete()` (obviously-fake output, no live call, no API key needed) and implies
+`--no-persist` (prints the plan instead of writing CSV/plan files). `--no-persist`
+alone reproduces the old `--dry-run` behavior (persistence-skip only) with live
+calls still firing — use it to preview a plan from a real run without writing
+output. `--skip-collect --skip-llm` (and `--no-relevance-gate` to also skip the
+gate's LLM calls) remains the way to reprocess already-collected data without
+touching the collect/LLM stages at all.

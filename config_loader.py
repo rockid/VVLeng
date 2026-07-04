@@ -172,6 +172,11 @@ class AppConfig:
     exports_dir: str = ""
     errors_dir: str = ""
 
+    # -- Runtime flags (CLI-driven, not persisted to YAML) --
+    # When True, every external/paid call (Apify, LLM) must return a mocked
+    # response from the same call site instead of hitting the real API.
+    dry_run: bool = False
+
 
 # ── Helper: recursive dict-to-dataclass ────────────────────────────────
 
@@ -210,7 +215,7 @@ def _dict_to_dataclass(dc_type, data: dict):
 # ── Public API ─────────────────────────────────────────────────────────
 
 
-def load_config(client_id_override: str = None) -> AppConfig:
+def load_config(client_id_override: str = None, dry_run: bool = False) -> AppConfig:
     """
     1. Load .env (secrets)
     2. Load config.yaml (shared config)
@@ -218,6 +223,10 @@ def load_config(client_id_override: str = None) -> AppConfig:
     4. Load clients/{client_id}.yaml
     5. Merge: client YAML values override config.yaml defaults
     6. Return single AppConfig object
+
+    ``dry_run`` is a CLI-driven runtime flag (not a YAML setting) — when True,
+    `collector/apify_client.py` and `content/llm_client.py` return mocked
+    responses instead of making real paid calls.
     """
     # 1. Load .env
     load_dotenv()
@@ -316,6 +325,7 @@ def load_config(client_id_override: str = None) -> AppConfig:
         output_dir=output_dir,
         exports_dir=exports_dir,
         errors_dir=errors_dir,
+        dry_run=dry_run,
     )
 
     return config

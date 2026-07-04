@@ -18,17 +18,25 @@ call site (see `.clinerules/03-coding-standards.md`); VV_Leng doesn't yet.
 
 ## Scope
 
-**Decide the flag naming first, before writing code** — `--dry-run` already exists
-in `run_pipeline.py` and means "compute the plan but skip persistence" (it does
-*not* stop live calls today). This task must not silently redefine that. Pick one
-and confirm with the user/architecture session before implementing:
-- (a) Repurpose `--dry-run` to match the umbrella convention (skip persistence
-  *and* mock external calls) and rename the current persistence-only behavior to
-  something like `--no-persist`, or
-- (b) Add a distinctly-named flag/config (`--mock`, or `mock_external: true` in
-  `config.yaml`) and leave the existing `--dry-run` meaning untouched.
+**Naming decision — RESOLVED 2026-06-24:** option (a). `--dry-run` is repurposed to
+match the umbrella convention: skip persistence *and* mock external (Apify/LLM)
+calls. The current persistence-only behavior moves to a new `--no-persist` flag.
+Rationale: matches every other project in this umbrella, and closes a cost footgun
+— today `--dry-run` *looks* safe/free but still makes live paid calls. This is a
+breaking change to `--dry-run`'s existing meaning; call it out in the PR/commit
+body and update every doc reference (`00-project-overview.md`, `01-session-start.md`,
+`02-session-end.md`, `05-secrets-and-safety.md`, `docs/pipeline_runbook.md`) since
+they all currently describe `--dry-run` as "skip persistence only" / "does not stop
+live calls."
 
-Then:
+Implementation, in order:
+- Add `--no-persist` (store_true) to `run_pipeline.py`, wired to exactly the
+  persistence-skip behavior `--dry-run` currently gates (the `if not args.dry_run`
+  / `if args.dry_run` branches around shortlist CSV, comment sheet, and plan-file
+  writes).
+- Redefine `--dry-run` to set both the mock-external flag *and* imply
+  `--no-persist` (dry-run should never write to disk either).
+- Then:
 - Add a `dry_run`/`mock` branch to `collector/apify_client.py`'s `run_actor()` (or
   `_run_actor_once()`) that returns fake post dicts shaped like real output —
   `tests/fixtures/sample_post_search.json` already captures the real
@@ -50,12 +58,18 @@ Then:
 
 ## Acceptance criteria
 
-- Full pipeline (`run_pipeline.py` with no `--skip-collect`/`--skip-llm`) runs
-  end-to-end with zero API keys set, when mock mode is on.
+- Full pipeline (`run_pipeline.py --dry-run`, no `--skip-collect`/`--skip-llm`) runs
+  end-to-end with zero API keys set.
+- `--no-persist` alone reproduces exactly today's `--dry-run` behavior (plan
+  printed to stdout, no CSV/plan-file writes) with live calls still firing —
+  i.e. the rename preserved the old behavior under the new name.
 - Mock output is unmistakably fake (explicit marker), never a plausible stand-in
   for real data downstream.
-- Existing tests (`tests/`) and the current smoke test still pass unchanged.
-- Real/live behavior is unchanged when the flag is off.
+- Existing tests (`tests/`) and the current smoke test still pass unchanged
+  (the smoke test uses `--skip-collect --skip-llm`, not `--dry-run`, so it's
+  unaffected by the rename).
+- Real/live behavior is unchanged when neither flag is passed.
+- Every doc reference to `--dry-run`'s old meaning is updated in the same PR.
 
 ## Constraints
 

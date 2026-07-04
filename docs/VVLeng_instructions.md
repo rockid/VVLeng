@@ -112,16 +112,17 @@ For each action in the plan:
 
 | Flag | What it does |
 |------|-------------|
-| `--dry-run` | Print plan to terminal only — **do not save to file** |
+| `--dry-run` | **Free test mode** — mocks Apify/LLM calls (no API keys needed, no cost) and prints the plan instead of saving |
+| `--no-persist` | Print plan to terminal only — **do not save to file** (live Apify/LLM calls still happen, still costs money) |
 | `--skip-collect` | **Skip Apify search** — reuse last fetched data. Saves API credits. |
 | `--skip-llm` | **Skip LLM** — no comment generation. Just collect posts. |
 | `--client <name>` | Run for a different client (e.g. `--client Joinee`) |
 | `--keywords "term1,term2"` | Override search keywords for this run |
 
-**Quick re-run** (reuses last data, just regenerates the plan):
+**Quick re-run** (reuses last data, just regenerates the plan, still costs LLM tokens):
 
 ```shell
-python run_pipeline.py --skip-collect --dry-run
+python run_pipeline.py --skip-collect --no-persist
 ```
 
 ---

@@ -1,5 +1,101 @@
 # VVLeng Progress Log
 
+## 2026-06-24 12:10 (SESSION END)
+Phase: infra | Step: TASK-1 close-out — commit, secrets check, final smoke re-run
+Status: DONE
+Files changed: none this entry (commit/verification only — see 11:45 entry for the
+  actual diff)
+Test result: PASS — re-ran `--skip-collect --skip-llm` smoke test against the final
+  committed tree (exit 0; log line confirmed `dry_run=False, no_persist=False`,
+  reloaded 96 posts, tagged 40 tier-1/56 tier-2, ran clean through semantic filter).
+  pytest tests/ 16/16 passed (run pre-commit, in the 11:45 entry).
+Notes: Committed TASK-1 as 4 logical commits on infra/add-dry-run-mode (user chose
+  this granularity via AskUserQuestion): 1b70f57 docs(tasks) decision record,
+  9b85767 feat(pipeline) code, 3507e3d docs(cline) doc updates, aa7bd8c
+  docs(progress) log. Secrets check: `git diff` across all 4 commits scanned for
+  key/token/secret patterns — only doc-text mentions of "API key" as a heading/
+  variable name, no actual credentials; `.env` never staged/touched in any commit.
+  Confirmed master untouched (`git merge-base --is-ancestor` → not merged, as
+  expected — work stayed on the feature branch). Cleaned up a second stray
+  verification-output file (smoke_test_close.txt) before leaving the tree clean.
+  User's own pre-existing unrelated changes (deleted
+  docs/session_handoff_2026-06-14_updated.md, modified
+  scratch/tier1_tier2_output_2026-06-17.txt, untracked scratch/*.py/*.json,
+  docs/Ideas.md, docs/linkedin_post_architecture_v1.md) confirmed still untouched/
+  unstaged — final git status matches session-start status exactly for these files.
+  Branch NOT pushed, no PR opened (both deferred — pushing/opening a PR is a
+  visible-to-others action; live Apify/LLM spot-check needs the user's cost
+  go-ahead per TASK-1's own constraint). Session ends here cleanly: nothing
+  uncommitted that was intentionally changed this session, smoke test passes,
+  docs are honest, .clinerules/00-project-overview.md status table is current
+  (no further staleness found this session beyond what TASK-1 itself fixed).
+  Next session should start at: push infra/add-dry-run-mode + open PR (or do the
+  live spot-check first, if the user wants that before opening the PR).
+
+## 2026-06-24 11:45
+Phase: infra | Step: Implement TASK-1 (dry-run/mock mode) on branch infra/add-dry-run-mode
+Status: DONE
+Files changed: config_loader.py (AppConfig.dry_run field + load_config(dry_run=) param),
+  collector/apify_client.py (_mock_run_actor() — harvestapi-shaped fake posts, [DRY_RUN MOCK]
+  marker; run_actor() checks config.dry_run first), content/llm_client.py (_mock_complete() —
+  [DRY_RUN MOCK LLM] marker, 3 '==='-delimited variants so comment_gen still produces multiple
+  variants; complete() checks config.dry_run first), run_pipeline.py (--dry-run help text
+  rewritten, new --no-persist flag added, no_persist = args.no_persist or args.dry_run computed
+  before config load, dry_run=args.dry_run passed into load_config(), all 3 persistence-gating
+  sites switched from args.dry_run to no_persist; --skip-collect/--skip-llm/--no-relevance-gate
+  untouched), docs updated in the same PR per acceptance criteria: .clinerules/00-project-overview.md
+  (status table + "the one rule" section), .clinerules/01-session-start.md (§2 flag semantics),
+  .clinerules/02-session-end.md (§1 smoke-test guidance), .clinerules/03-coding-standards.md
+  (dry-run pattern section now points to the real reference implementation instead of saying
+  none exists), .clinerules/05-secrets-and-safety.md (cost discipline section), docs/pipeline_runbook.md
+  (new example command + Flags line), docs/VVLeng_instructions.md (CLI flags table + quick-rerun
+  example changed from `--skip-collect --dry-run` to `--skip-collect --no-persist`, since under
+  the new semantics --dry-run would also mock the LLM call).
+Test result: PASS — all 4 verification runs exited 0, no exceptions:
+  (1) smoke test `--skip-collect --skip-llm` unchanged/still passes (confirms skip-flag behavior
+  untouched); (2) full `--dry-run` (no skip flags) ran collect→...→outputs end-to-end with zero
+  API keys set, mock posts flowed through normalise_posts() correctly, plan printed to stdout
+  only (no CSV/plan file written) — confirms --dry-run implies --no-persist; (3) `--no-persist`
+  alone reproduced the old --dry-run behavior exactly (plan to stdout, no persistence) while
+  config.dry_run stayed False (live-call code paths still reached, not exercised further to
+  avoid cost); (4) isolated check that comment_gen.rank_comment_variants() fails open on the
+  mock LLM's non-JSON string (expected "Comment ranking failed (Expecting value...)" warning,
+  not a crash — by design). pytest tests/ not re-run this session (no test file references
+  dry_run/--dry-run; existing tests unaffected by additive AppConfig field + new branch-at-top-
+  of-function checks).
+Notes: Acceptance criteria from .cline-tasks/TASK-1.md all met: full pipeline runs dry with zero
+  keys; --no-persist alone == old --dry-run behavior; mock output has explicit unmistakable
+  markers ([DRY_RUN MOCK], [DRY_RUN MOCK LLM], "_mock": true); live/real behavior unchanged when
+  neither flag passed (mock check is a new early-return, real path below it is untouched);
+  --skip-collect/--skip-llm/--no-relevance-gate behavior untouched (diff-reviewed). Cleaned up
+  3 stray verification-run artifact files at repo root (smoke_test_out.txt, dry_run_out.txt,
+  nopersist_out.txt) before commit — not part of the intended diff. One regenerable mock file
+  landed under gitignored data/Joinee/raw/ — harmless, no action needed. User's own pre-existing
+  unrelated in-progress changes (deleted docs/session_handoff_2026-06-14_updated.md, modified
+  scratch/tier1_tier2_output_2026-06-17.txt, untracked scratch/*.py + docs/Ideas.md +
+  docs/linkedin_post_architecture_v1.md) confirmed still untouched/unstaged via git status.
+  Not yet done: live spot-check of real Apify/LLM call (deferred — requires user's explicit
+  go-ahead since it costs money, per TASK-1 constraints); actual commit + PR (next step).
+
+## 2026-06-24 10:30
+Phase: infra | Step: Resolve TASK-1 naming decision (dry-run/mock flag)
+Status: DONE
+Files changed: .cline-tasks/TASK-1.md (locked in option (a) — repurpose --dry-run
+  to umbrella convention: skip persistence + mock external calls; current
+  persistence-only behavior moves to new --no-persist flag; updated acceptance
+  criteria + implementation order accordingly), .cline-tasks/README.md (decision
+  status updated from "open" to "resolved")
+Test result: N/A (decision/doc only, no code changed yet)
+Notes: User chose option (a) over (b) via AskUserQuestion — recommended because it
+  matches every other umbrella project's --dry-run convention and closes the cost
+  footgun where --dry-run today looks safe/free but still fires live Apify/LLM
+  calls. This is a breaking rename of --dry-run's current meaning ("skip
+  persistence only") — TASK-1 implementation must update every doc reference
+  (00-project-overview.md, 01-session-start.md, 02-session-end.md,
+  05-secrets-and-safety.md, docs/pipeline_runbook.md) in the same PR as the code.
+  No code written yet — TASK-1 implementation itself is still open/unstarted.
+  Branch suggestion in the task file: infra/add-dry-run-mode.
+
 ## 2026-06-24 09:58
 Phase: infra | Step: org-framework adoption — fold CLINE.md into .clinerules/, smoke test, git-permissions change (separate request)
 Status: DONE

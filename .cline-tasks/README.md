@@ -16,8 +16,11 @@ history record what actually got done. Delete a task file once its change is mer
 
 ## Decisions — status
 
-TASK-1 has an open naming decision (reuse `--dry-run` vs. a new flag) that must be
-resolved with the user before implementation starts — see the task file.
+TASK-1's naming decision is **resolved** (2026-06-24): repurpose `--dry-run` to the
+umbrella convention (skip persistence + mock external calls); today's
+persistence-only behavior moves to a new `--no-persist` flag. This is a breaking
+change to `--dry-run`'s current meaning — see the task file for the full rationale
+and the doc files that need updating alongside the code.
 
 ## Open owner actions (manual)
 

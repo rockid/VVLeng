@@ -46,6 +46,24 @@ def load_prompt(name: str) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
+_MOCK_MARKER = "[DRY_RUN MOCK LLM]"
+
+
+def _mock_complete(model: str) -> str:
+    """
+    Obviously-fake response for dry-run mode — no live request made.
+
+    Callers (comment_gen, relevance_gate) parse this defensively and fail
+    open on malformed/unexpected content, so a plain marked string is enough
+    to exercise the full flow without inventing a per-caller mock schema.
+    Three '===' delimited variants matches comment_gen's expected shape so a
+    dry-run still produces multiple comment variants downstream.
+    """
+    logger.info("DRY_RUN: mocking LLM call (model=%s) — no live request made", model)
+    variant = f"{_MOCK_MARKER} simulated response — no API call made, not real content."
+    return "\n===\n".join([variant] * 3)
+
+
 def complete(
     prompt: str,
     system: str,
@@ -56,6 +74,8 @@ def complete(
 ) -> str:
     """
     Call laozhang.ai (OpenAI-compatible) and return the response text.
+    If ``config.dry_run`` is set, returns a mocked response instead — no live
+    call, no API key required.
 
     Args:
         prompt: User message content.
@@ -74,6 +94,9 @@ def complete(
             model = config.llm.comment_model
         else:
             model = os.getenv("LLM_DEFAULT_MODEL", "gpt-4o-mini")
+
+    if config is not None and getattr(config, "dry_run", False):
+        return _mock_complete(model)
 
     client = _get_client(config)
 
