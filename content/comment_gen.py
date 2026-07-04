@@ -18,6 +18,22 @@ COMMENT_BLOCKLIST = os.getenv(
 # Structured (hook/value/closer) comments run longer than a one-liner; keep a
 # generous ceiling so we don't truncate mid-thought.
 MAX_COMMENT_LENGTH = int(os.getenv("MAX_COMMENT_LENGTH", "700"))
+# Post text window for writer AND judge. Long posts bury the real point after a
+# narrative setup; a narrow window makes the model respond to the setup and
+# misjudge the register. LinkedIn posts run to ~3000 chars. Writer and judge
+# must see the same window.
+POST_TEXT_WINDOW = int(os.getenv("POST_TEXT_WINDOW", "1800"))
+
+
+def _strip_em_dashes(text: str) -> str:
+    """Replace em-dashes and double-hyphens with a spaced en-dash.
+
+    The prompt bans em-dashes, but generation can still leak one; this
+    guarantees none reaches a posted comment. Preserves newlines (variants can
+    be multi-line) and collapses any accidental double spaces.
+    """
+    text = re.sub(r"[ \t]*(?:—|--+)[ \t]*", " – ", text)
+    return re.sub(r" {2,}", " ", text)
 
 
 def rank_comment_variants(
@@ -47,7 +63,7 @@ def rank_comment_variants(
     user_prompt = (
         load_prompt("comment_rank_user")
         .replace("{author_headline}", author_headline or "")
-        .replace("{post_text}", (post_text or "")[:600])
+        .replace("{post_text}", (post_text or "")[:POST_TEXT_WINDOW])
         .replace("{variants_block}", block)
     )
 
@@ -106,11 +122,19 @@ def generate_comments(
     When ``rank`` is True, an LLM judge reorders them best-first and annotates the
     top pick (``recommended``, ``confidence``, ``top_reason``, ``safe_to_autopost``).
     """
-    system_prompt = load_prompt("comment_system").format(niche=niche)
-    user_prompt = load_prompt("comment_user").format(
-        post_text=post_text[:500],
-        author_headline=author_headline,
-        n_variants=n_variants,
+    # .replace(), not .format(): the prompt text may contain literal braces
+    # (and already contains {n_variants}), which .format() would crash on.
+    # Same pattern as the ranker path above.
+    system_prompt = (
+        load_prompt("comment_system")
+        .replace("{niche}", niche or "")
+        .replace("{n_variants}", str(n_variants))
+    )
+    user_prompt = (
+        load_prompt("comment_user")
+        .replace("{author_headline}", author_headline or "")
+        .replace("{post_text}", (post_text or "")[:POST_TEXT_WINDOW])
+        .replace("{n_variants}", str(n_variants))
     )
 
     # Determine model: explicit arg → config → default
@@ -145,6 +169,8 @@ def generate_comments(
         text = re.sub(r"^\s*(?:\d+[\.\)]|[-•*])\s*", "", part).strip()
         # Strip surrounding quotes the model sometimes adds
         text = text.strip('"').strip()
+
+        text = _strip_em_dashes(text)
 
         # Truncate if too long (rare at 700 chars)
         if len(text) > MAX_COMMENT_LENGTH:

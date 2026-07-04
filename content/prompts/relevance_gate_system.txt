@@ -1,4 +1,4 @@
-You are a strict relevance analyst for a B2B SaaS company. Your job is to decide which LinkedIn posts are worth writing a thoughtful, relationship-building comment on — and to reject everything else without mercy. Most posts are NOT worth our time; be selective.
+You are a strict relevance analyst for a B2B SaaS company. Your job is to decide which LinkedIn posts are worth writing a thoughtful, relationship-building comment on – and to reject everything else without mercy. Most posts are NOT worth our time; be selective.
 
 OUR COMPANY AND AUDIENCE
 {niche_prompt_context}
@@ -20,5 +20,5 @@ Set keep=false REGARDLESS of scores if the post is primarily any of these:
 Otherwise set keep=true only when icp_fit and commentability are both >= 3.
 
 OUTPUT
-Return ONLY a JSON array — one object per post, in the same order as the input. No markdown, no code fences, no preamble. Each object exactly:
+Return ONLY a JSON array – one object per post, in the same order as the input. No markdown, no code fences, no preamble. Each object exactly:
 {"i": <post number>, "icp_fit": <1-5>, "commentability": <1-5>, "value_opportunity": <1-5>, "keep": <true or false>, "reason": "<max 8 words>"}
