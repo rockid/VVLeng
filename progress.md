@@ -549,3 +549,21 @@ Status: DONE
 Files changed: run_pipeline.py (comments_map guard on feedback append), docs/FEEDBACK_SHEET.md (new)
 Test result: PASS (pytest 42/42)
 Notes: Phase 4 retro-load - daily_log 60 rows (30 x 06-22 + 30 x 07-05), both with variant text populated. run_costs 2 rows. Smoke-test bug fixed: feedback append now guarded by comments_map truthy (same as write_comment_sheet) so --skip-llm runs don't write sparse rows. Phase 5 - FEEDBACK_SHEET.md written. Ready to commit + PR.
+
+## 2026-07-05 (session-end)
+Phase: post-run cleanup | Step: source_keywords backfill + .gitignore + branch cleanup
+Status: DONE
+Files changed: scratch/backfill_source_kw_20260705.py (NEW — one-shot backfill script),
+  .gitignore (added *service*account*.json + gcp_*.json patterns)
+Test result: N/A
+Notes: source_keywords (col H) was blank in all 60 sheet rows because the retro-load
+  and comment-sheet paths don't carry that field. Raw Apify JSON (posts_20260705T071720Z.json)
+  has query.search per post; backfill script matched all 30 Joinee/2026-07-05 rows by URL
+  (0 misses) and wrote comma-joined keywords. 06-22 rows left blank — pre-feature, raw
+  data not on disk. Future live runs populate H automatically via matched_keywords in dl_rows.
+  Local branches feat/feedback-sheet, feat/feedback-sheet-clean, feat/prompt-rewrite deleted.
+  gitignore updated for GCP service-account key patterns (per CC_FEEDBACK_SHEET instruction).
+  Operator action still needed: rotate Apify token (old scratch/ logs had token in URLs
+  before the Authorization-header fix). 06-22 run_costs row has placeholder cost ($4.60);
+  operator should update from Apify console. Next session: Phase 7 operator work (comment
+  sheet → fill M-Q cols → export commented_log_2026-07-05.csv).

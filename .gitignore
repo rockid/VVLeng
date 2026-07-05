@@ -32,6 +32,10 @@ data/
 .DS_Store
 Thumbs.db
 
+# Google service-account key files — never commit
+*service*account*.json
+gcp_*.json
+
 # Streamlit
 .streamlit/secrets.toml
 
