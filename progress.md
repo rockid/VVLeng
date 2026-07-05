@@ -535,3 +535,17 @@ Status: DONE (pending smoke-test confirmation)
 Files changed: planner/comment_runner.py (new), run_pipeline.py (auto-build after sheet write, fails soft), tests/test_comment_runner.py (3 new tests), docs/pipeline_runbook.md
 Test result: PASS (pytest 32/32; module output byte-identical to today's scratch-built runner; smoke test running)
 Notes: Operator confirmed the runner HTML is the working surface -> promoted scratch/build_comment_ui.py into planner/comment_runner.py, wired into run_pipeline behind the sheet write (skipped under --no-persist/--dry-run since no sheet is written). scratch/build_comment_ui.py left in place but superseded - candidate for deletion.
+
+## 2026-07-05 (I-10 Phases 0-3)
+Phase: I-10 | Step: Phases 0-3 complete
+Status: DONE
+Files changed: feedback/__init__.py, feedback/sheet_client.py (new), scripts/setup_feedback_sheet.py (new), run_pipeline.py (keyword accumulation + sheet append hook), tests/test_feedback_sheet.py (10 new tests), requirements.txt (gspread>=6.0.0)
+Test result: PASS (pytest 42/42)
+Notes: Phase 0 - connectivity OK (gspread Bearer auth, sheet 'VVLeng Feedback' opened). Phase 1 - 4 tabs created with headers/dropdowns/amber formatting. Phase 3 - matched_keywords accumulated before text-dedup so all keywords that found a post survive; 7.9% of posts appear under 2+ keywords on 2026-07-05 data. Phase 2 - sheet_client.py: append_daily_log/append_run_cost/read_daily_log/print_end_of_run_checklist, all fail-soft, dedup-guarded, dry-run skipped. WAITING on smoke test before Phase 4 STOP.
+
+## 2026-07-05 (I-10 Phase 4-5)
+Phase: I-10 | Step: retro-load + usage doc + guard fix
+Status: DONE
+Files changed: run_pipeline.py (comments_map guard on feedback append), docs/FEEDBACK_SHEET.md (new)
+Test result: PASS (pytest 42/42)
+Notes: Phase 4 retro-load - daily_log 60 rows (30 x 06-22 + 30 x 07-05), both with variant text populated. run_costs 2 rows. Smoke-test bug fixed: feedback append now guarded by comments_map truthy (same as write_comment_sheet) so --skip-llm runs don't write sparse rows. Phase 5 - FEEDBACK_SHEET.md written. Ready to commit + PR.
