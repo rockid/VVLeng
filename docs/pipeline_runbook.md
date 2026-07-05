@@ -80,8 +80,11 @@ are the levers for eventual near-full automation (auto-post conf-5/safe, route t
 
 ## Open items / next
 
-- **Operator feedback loop** — the comment runner exports `commented_log_{date}.csv` (which post got
-  which comment). Not yet consumed by the pipeline. Prerequisite for the carry-over pool.
+- **Operator feedback loop** — the Google Sheet `daily_log` tab (cols M–Q: `worked`, `variant_used`,
+  `posted_text`, `reject_reason`, `posted_at`) is now the feedback surface. Fill these in the sheet
+  directly after commenting; the HTML runner's "Export feedback CSV" button is a local backup only.
+  Pipeline doesn't yet read M–Q — when the feedback loop is built it will read from the sheet,
+  not a CSV file. Prerequisite for the carry-over pool.
 - **Carry-over / persistent post pool** — let un-commented fresh candidates persist into the next day's
   shortlist (bounded to ~48-72h comment-eligibility), and decouple collection cadence from commenting
   cadence (collect every 2-3 days, comment daily). Needs persistence (JSON pool MVP, then DB).
