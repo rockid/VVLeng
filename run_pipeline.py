@@ -604,6 +604,13 @@ def main():
         sheet_path = write_comment_sheet(for_llm_posts, comments_map, config.output_dir)
         if sheet_path:
             logger.info("Comment sheet ready for manual placement: %s", sheet_path)
+            from planner.comment_runner import build_comment_runner
+            try:
+                build_comment_runner(sheet_path)
+            except Exception as e:
+                # The sheet is the primary deliverable; a runner-build failure
+                # must not fail the run after paid collect/LLM calls.
+                logger.warning("Comment runner build failed (sheet still usable): %s", e)
 
     # =====================================================================
     # 6. PLAN
