@@ -38,7 +38,7 @@ _RECRUITING_PATTERNS = re.compile(
     r"|\b(?:send|share|drop)\s+(?:me\s+)?your\s+(?:cv|resume)\b"
     r"|\bthis (?:role|position) (?:is|requires|offers)\b"
     r"|\bto hire (?:a|an|our|their)\b|\bwe(?:'re| are) recruiting\b"
-    r"|\bjoin us as\b|\bremote job\b|\bjob (?:portals?|boards?)\b"
+    r"|\bjoin us as\b|\bremote (?:job|role)\b|\bjob (?:portals?|boards?)\b"
     r")"
 )
 
@@ -58,6 +58,43 @@ _ANNOUNCEMENT_PATTERNS = re.compile(
     r"|\bopen to (?:work|opportunities)\b"
     r")"
 )
+
+# ── Career-transition / job-seeking patterns ──────────────────────────────
+# The 2026-06-22 shortlist leaked career-change posts past the recruiting and
+# announcement classifiers (e.g. layoff stories, "after 6 years at X" pivots).
+# Kept conservative: word boundaries, specific phrasings. Patterns that the
+# announcement classifier already catches ("open to work", "new chapter",
+# "excited/thrilled to announce/share") are deliberately not duplicated here.
+_CAREER_TRANSITION_PATTERNS = re.compile(
+    r"(?i)("
+    r"#opentowork\b"
+    # "next chapter" must be anchored as a personal transition ("beginning my
+    # next chapter", "time for my next chapter"). Bare "next chapter" is too
+    # broad: validation on the 2026-06-22 corpus showed it firing on figurative
+    # business uses ("the next chapter of customer marketing"), including
+    # ICP-relevant shortlisted posts.
+    r"|\b(?:begin(?:ning|s)?|start(?:ing|s)?|embark(?:ing)?\s+on|on to|"
+    r"time for|into)\s+(?:the\s+|a\s+|my\s+|this\s+|our\s+)?next chapter\b"
+    r"|\bafter\s+\d+(?:\.\d+)?\+?\s+(?:years?|months?)\s+at\b"
+    r"|\blaid off\b|\blay-?offs?\s+(?:hit|affected)\b"
+    r"|\bjob\s+search(?:ing)?\b|\bjob\s+hunt(?:ing)?\b"
+    r")"
+)
+
+# ── HR-topic markers ──────────────────────────────────────────────────────
+# Single mentions appear in legitimate community-ops content (a community
+# manager can mention "recruiters" in passing), so a post is only classified
+# as HR noise when these markers dominate: 2+ hits in one post.
+_HR_TOPIC_PATTERNS = re.compile(
+    r"(?i)("
+    r"\btalent acquisition\b"
+    r"|\brecruiters?\b"
+    r"|\bhiring managers?\b"
+    r"|\b(?:resume|résumé|cv)\s+tips?\b"
+    r"|\binterview\s+tips?\b"
+    r")"
+)
+_HR_TOPIC_MIN_HITS = 2
 
 
 @dataclass
@@ -234,6 +271,10 @@ def _noise_reason(text: str) -> str:
         return "recruiting / job post"
     if _ANNOUNCEMENT_PATTERNS.search(text):
         return "announcement / non-actionable"
+    if _CAREER_TRANSITION_PATTERNS.search(text):
+        return "career transition / job seeking"
+    if len(_HR_TOPIC_PATTERNS.findall(text)) >= _HR_TOPIC_MIN_HITS:
+        return "HR-topic dominant"
     return ""
 
 

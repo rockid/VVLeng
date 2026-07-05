@@ -3,6 +3,14 @@ Post by {author_headline}:
 {post_text}
 """
 
-Write {n_variants} distinct comment variants for the post above, following every rule.
-Give each variant a different angle. Separate variants with a line containing only ===
-Output only the comments and the === separators — nothing else.
+First, silently judge the post's weight (light / practical / analytical / emotional) and match your comments to it.
+
+Write {n_variants} comment variants. Make them genuinely different in angle AND length:
+- Variant 1: short. Under 15 words. A sharp reaction, a quip, or one concrete point.
+- Variant 2: medium. Roughly 20 to 35 words. A different angle from variant 1.
+- Any further variants: your choice of angle and length, but go long only if the post is meaty enough to earn it.
+
+Match every comment's weight to the post. Do not answer a light post with a heavy comment.
+Never end a comment with a question or any invitation to respond. End on a statement, or just stop.
+Separate variants with a line containing only ===
+Output only the comments and the === separators, nothing else.

@@ -321,6 +321,31 @@ def write_comment_sheet(posts: list[dict], comments_map: dict, output_dir: str) 
     return path
 
 
+def warm_up_network_stack(config) -> None:
+    """Make one throwaway HTTPS request BEFORE torch loads.
+
+    On this machine (Win10 + a third-party Winsock layer), the first HTTPS
+    connection attempted after torch/OpenMP DLLs are loaded access-violates
+    inside socket.getaddrinfo and kills the process (0xC0000005). One request
+    made while the process is still light initializes the socket/TLS layer
+    process-wide and permanently immunizes later calls (verified 2026-07-05,
+    see progress.md). Must run before the semantic filter lazily imports
+    sentence_transformers. Skipped in --dry-run to keep it zero-network.
+    The request may fail (offline, 401, timeout) — that is harmless; even a
+    failed handshake initializes the socket layer.
+    """
+    if getattr(config, "dry_run", False):
+        return
+    import httpx
+
+    url = getattr(config, "llm_base_url", "") or "https://api.apify.com"
+    try:
+        httpx.head(url, timeout=5)
+        logger.debug("Network warm-up request completed")
+    except Exception as e:  # noqa: BLE001 — warm-up is best-effort by design
+        logger.debug("Network warm-up request failed harmlessly: %s", e)
+
+
 def main():
     parser = argparse.ArgumentParser(description="VVLeng LinkedIn Engagement Pipeline")
     parser.add_argument("--skip-collect", action="store_true", help="Skip Apify data collection")
@@ -361,6 +386,8 @@ def main():
     logger.info("Flags: skip_collect=%s, skip_semantic=%s, skip_llm=%s, dry_run=%s, no_persist=%s",
                 args.skip_collect, args.skip_semantic, args.skip_llm, args.dry_run, no_persist)
     logger.info("=" * 60)
+
+    warm_up_network_stack(config)
 
     # ── Determine keywords ─────────────────────────────────────────────────
     # Priority: CLI arg → client_config.seed_keywords → fallback
@@ -577,6 +604,13 @@ def main():
         sheet_path = write_comment_sheet(for_llm_posts, comments_map, config.output_dir)
         if sheet_path:
             logger.info("Comment sheet ready for manual placement: %s", sheet_path)
+            from planner.comment_runner import build_comment_runner
+            try:
+                build_comment_runner(sheet_path)
+            except Exception as e:
+                # The sheet is the primary deliverable; a runner-build failure
+                # must not fail the run after paid collect/LLM calls.
+                logger.warning("Comment runner build failed (sheet still usable): %s", e)
 
     # =====================================================================
     # 6. PLAN

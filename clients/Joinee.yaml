@@ -129,7 +129,9 @@ keywords:
 
 # ── Collection settings ────────────────────────────────────────────────
 collection:
-  posts_per_keyword: 50          # 50 results per keyword, sorted by relevance
+  posts_per_keyword: 35          # relevance-sorted; cut from 50 after top-N analysis
+                                 # (2026-07-04: 76% of gate-kept posts sat at pos <=30,
+                                 # decision-rule band 70-85% -> 35; operator-approved)
   min_engagement_tier1: 10
   min_engagement_tier2: 10
   min_engagement_tier3: 10

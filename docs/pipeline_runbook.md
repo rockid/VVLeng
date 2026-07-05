@@ -21,7 +21,7 @@ collect (Apify) → tag tier → semantic filter → content filters → LLM rel
 | Scoring + blend | `processor/post_scorer.py` | Heuristic (freshness·velocity·relevance·opportunity) **blended 50/50 with the gate score** into `rank_score`. Gate-kept posts can't be vetoed by the heuristic threshold. |
 | Comment gen | `content/comment_gen.py` | 3 variants, hook→value→closer, non-promotional, **no fabricated stats**. |
 | Comment rank | `content/comment_gen.rank_comment_variants` | **LLM judge** orders the 3 best-first + tags top with `confidence` (1-5) and `safe_to_autopost`. |
-| Outputs | `run_pipeline` + `scratch/build_comment_ui.py` | See below. |
+| Outputs | `run_pipeline` + `planner/comment_runner.py` | See below. The comment-runner HTML is built automatically whenever a comment sheet is written (2026-07-05; formerly a manual `scratch/build_comment_ui.py` step). |
 
 ## How to run
 
@@ -38,8 +38,9 @@ python run_pipeline.py --client Joinee --skip-collect --skip-llm --no-relevance-
 # Free full-pipeline dry run — mocks Apify + LLM calls, zero keys needed, no persistence:
 python run_pipeline.py --client Joinee --dry-run
 
-# Build the operator comment UI from the latest comment sheet:
-python scratch/build_comment_ui.py
+# Rebuild the operator comment UI from an existing sheet (normally automatic —
+# every run that writes a comment sheet also writes its runner HTML):
+python -c "from planner.comment_runner import build_comment_runner as b; b('data/Joinee/output/comment_sheet_2026-07-05.csv')"
 
 # Generate 5 content-post topic ideas from the corpus:
 python scratch/topic_ideas.py
