@@ -26,6 +26,12 @@ def _sanitize_actor_id(actor_id: str) -> str:
     return actor_id.replace("/", "~")
 
 
+def _auth_headers(token: str) -> dict[str, str]:
+    """Bearer-token header for every Apify call, keeping the token out of URLs
+    (httpx logs full URLs at INFO level, which would leak a query-param token)."""
+    return {"Authorization": f"Bearer {token}"}
+
+
 _MOCK_MARKER = "[DRY_RUN MOCK]"
 _MOCK_POSTS_PER_QUERY = 2  # keeps mock volume bounded regardless of keyword count
 
@@ -144,11 +150,12 @@ def _run_actor_once(actor_id: str, input_payload: dict, timeout_secs: int,
         raise ApifyError("APIFY_API_TOKEN not set")
 
     # 1. Start the actor (sanitize ID: harvestapi/linkedin-post-search → harvestapi~linkedin-post-search)
+    # Token goes in the Authorization header, never the URL — httpx logs full
+    # request URLs at INFO, so a query-param token would leak into run logs.
     safe_id = _sanitize_actor_id(actor_id)
-    with httpx.Client(timeout=30) as client:
+    with httpx.Client(timeout=30, headers=_auth_headers(token)) as client:
         resp = client.post(
             f"{APIFY_BASE}/acts/{safe_id}/runs",
-            params={"token": token},
             json=input_payload,
         )
         if resp.status_code not in (200, 201):
@@ -162,11 +169,8 @@ def _run_actor_once(actor_id: str, input_payload: dict, timeout_secs: int,
     started = time.time()
     while time.time() - started < timeout_secs:
         time.sleep(5)
-        with httpx.Client(timeout=30) as client:
-            resp = client.get(
-                f"{APIFY_BASE}/actor-runs/{run_id}",
-                params={"token": token},
-            )
+        with httpx.Client(timeout=30, headers=_auth_headers(token)) as client:
+            resp = client.get(f"{APIFY_BASE}/actor-runs/{run_id}")
             if resp.status_code != 200:
                 raise ApifyError(f"Failed to poll run {run_id}: {resp.status_code}")
             status = resp.json()["data"]["status"]
@@ -189,11 +193,11 @@ def download_dataset(dataset_id: str, token: str = "") -> list[dict]:
     offset = 0
     limit = 1000
 
-    with httpx.Client(timeout=60) as client:
+    with httpx.Client(timeout=60, headers=_auth_headers(token)) as client:
         while True:
             resp = client.get(
                 f"{APIFY_BASE}/datasets/{dataset_id}/items",
-                params={"token": token, "offset": offset, "limit": limit, "format": "json"},
+                params={"offset": offset, "limit": limit, "format": "json"},
             )
             if resp.status_code != 200:
                 raise ApifyError(f"Failed to download dataset {dataset_id}: {resp.status_code}")
