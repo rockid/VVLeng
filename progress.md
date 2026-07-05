@@ -1,5 +1,222 @@
 # VVLeng Progress Log
 
+## 2026-07-05 02:25
+Phase: run-sequence | Step: Full execution report written (operator request)
+Status: DONE
+Files changed: docs/run_sequence_report_2026-07-05.md (NEW — per-phase results,
+  findings, commit map, cost accounting, 7 consolidated follow-ups)
+Test result: N/A (docs only)
+Notes: Report covers Phases 0-5 complete, 6 pending sample review, 7 operator-
+  only. Still at the Phase 5 sample-review ⛔ STOP (see 02:05 entry).
+
+## 2026-07-05 02:05
+Phase: run-sequence | Step: Regen attempt 3 SUCCESS + top-10 sample delivered — at Phase 5 sample-review ⛔ STOP
+Status: DONE (regen + sample) / BLOCKED (operator reviews sample outside CC)
+Files changed: committed a8047d4 (run_pipeline.py warm_up_network_stack;
+  clients/Joinee.yaml posts_per_keyword 35). Uncommitted TEMP: config.yaml
+  max_post_age_days=14 (operator instruction: for today's live run only,
+  revert to 7 after). Generated: data/Joinee/output/comment_sheet_2026-07-05.csv
+  + shortlist_2026-07-05.csv (regenerable), scratch/sample_top10_2026-07-05.txt
+Test result: PASS — regen exit 0 with warm-up fix (proves fix under real load).
+  Funnel on saved 06-22 corpus @21d age: 2301 → 498 semantic → 243 filters →
+  gate: 107 comment_target / 25 avoid → top-30 sheet, 3 variants each.
+  Sample quality scan: register-matched, no bait questions, en-dashes only,
+  confidence 4-5, all safe=True.
+Notes: Judge 'reason' strings cite pre-reorder variant labels (e.g. "Comment 2
+  ..." while columns are already best-first) — cosmetic, noted as follow-up.
+  LLM cost: ~2 wasted gate batches (attempts 1-2) + full gate (17 batches) +
+  30×2 gen/rank calls ≈ cents on gpt-4.1-mini. Next: operator reviews
+  scratch/sample_top10_2026-07-05.txt in Claude chat; on approval (+ possible
+  prompt tweaks) → Phase 6 live run (Apify+LLM, maxPosts=35, age=14).
+
+## 2026-07-05 01:40
+Phase: run-sequence | Step: regen crash root-caused — torch-vs-Winsock DLL conflict; warm-up fix added
+Status: DONE (diagnosis + fix) / IN PROGRESS (regen attempt 3)
+Files changed: run_pipeline.py (warm_up_network_stack() — one throwaway HTTPS
+  request before torch loads, skipped in --dry-run; called in main() after
+  config load), scratch/dns_probe_20260705.py + net_after_encode_20260705.py
+Test result: Deterministic repro established (free): FIRST httpx call AFTER
+  sentence-transformers encode → access violation in socket.getaddrinfo
+  (exit 0xC0000005) every time; one httpx call BEFORE torch loads → all
+  later httpx AND requests calls succeed in that process. Bare getaddrinfo
+  and torch-import-only combos pass — the trigger is full model load +
+  OpenMP threads before first TLS connection.
+Notes: Regen attempts 1+2 both died at the FIRST gate LLM call (≤1 batch
+  billed each, ~cents total). Side observation: a survived first-chance AV
+  also fires inside pyarrow DLL init (lazy pandas import via
+  transformers.generation→sklearn chain) — machine has a fragile native-DLL
+  landscape (likely AV/VPN Winsock LSP); operator-level fix (winsock reset /
+  AV check) still recommended but no longer blocking. Next: regen attempt 3
+  with warm-up in place → top-10 sample → revert config.yaml age temp.
+
+## 2026-07-05 01:00
+Phase: run-sequence | Step: .venv fixed + Phase 5.1/5.2 PASS — at paid-regen ⛔ STOP
+Status: DONE (verification ladder, free part) / BLOCKED (operator go-ahead for paid regen)
+Files changed: clients/Joinee.yaml (posts_per_keyword 50→35 per Phase 4 decision,
+  uncommitted), scratch/diag_load_20260705.py + smoke_20260705.txt (untracked)
+Test result: PASS — full --dry-run exit 0 (collect→plan, mock Apify+LLM);
+  smoke --skip-collect --skip-llm exit 0; pytest 29/29 in .venv;
+  isolated dry-run comment-gen check: 3 mock variants, ranking fails open, no crash.
+Notes: ENV SAGA RESOLVED: .venv created (system py3.12, torch 2.12.1+cpu,
+  transformers 4.49.0 + sentence-transformers 3.4.1 pinned, safetensors 0.4.5,
+  hf-xet uninstalled). ROOT CAUSE of exit-5 crashes was NOT torch/safetensors:
+  faulthandler showed access violation inside socket.getaddrinfo — machine-level
+  Winsock/DNS instability (same cause as pip DNS failures + AV file lock).
+  WORKAROUND: HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 for all pipeline runs
+  (MiniLM fully cached). ⚠ RISK: live Apify/LLM calls use getaddrinfo too — a
+  live run may crash mid-collection until the operator fixes Winsock/VPN/AV.
+  FINDINGS: (1) --dry-run does NOT exercise comment gen — semantic filter drops
+  all 96 mock posts (mock text is off-niche by construction); covered instead by
+  unit tests + isolated mock-LLM check; follow-up: make some mock posts pass the
+  filter. (2) Saved 06-22 posts are now ALL >7d old → age filter removes 100%,
+  so a --skip-collect regen today yields 0 targets without a temporary
+  max_post_age_days raise. Deleted 2 new mock raw files post-dry-run.
+  Next: operator decides regen approach (temp age raise vs fold review into
+  Phase 6 live run).
+
+## 2026-07-05 00:20
+Phase: run-sequence | Step: Phase 3 approved; .venv build started; Phase 4 top-N analysis done — at Phase 4 ⛔ STOP
+Status: DONE (analysis) / BLOCKED (operator picks maxPosts)
+Files changed: scratch/topn_analysis_20260704.py + topn_report_2026-07-04.txt
+  (untracked scratch); .venv/ being created in background (gitignored)
+Test result: N/A (analysis). Position recoverable: yes — raw items ordered per
+  query (47 queries, 24-50 posts each); query.search parsed for base keyword.
+Notes: Operator approved Phase 3 pattern set as committed (0f2be25) and chose
+  dedicated .venv (system py3.12 + CPU torch + requirements.txt, background
+  job b67s8ulxm). RESULTS: gate-kept shortlist 119/119 matched — 66% at pos
+  ≤25, 76% at pos ≤30; top-30 sheet: 67% ≤25, 73% ≤30. Decision rule band
+  70-85% → recommend maxPosts 50→35. Per-keyword: top yielders 5-8 kept/50
+  fetched. Caveat: per-tier split shows "unknown" (query strings didn't match
+  current clients/Joinee.yaml keyword lists — cosmetic, overall numbers
+  unaffected). Side-finding: collection queries already embed NOT hiring/"new
+  role"/"new chapter"/thrilled clauses. Next: operator picks 50/35/30 →
+  Phase 5 verification ladder once .venv ready.
+
+## 2026-07-04 13:50
+Phase: run-sequence | Step: Phase 3 validated + committed — at Phase 3 ⛔ STOP
+Status: DONE (classifier + validation) / BLOCKED (operator approval + env decision)
+Files changed: processor/post_scorer.py + tests/test_noise_classifier.py
+  (committed as 0f2be25 on feat/prompt-rewrite), scratch/
+  validate_career_filter_20260704.py + nc_context_20260704.py + report (untracked)
+Test result: PASS — pytest 29/29. Validation on saved 2301-post corpus:
+  33 newly excluded (29 career-transition, 4 HR-dominant), 4 in gated
+  shortlist incl. 1 top-30, all judged defensible catches.
+Notes: Mid-validation adjustment: bare "next chapter" fired on figurative
+  business uses (28 posts, incl. ICP-relevant Dr. Mansi Shah shortlist post =
+  true false positive) — replaced with verb-anchored pattern (begin/start/
+  embark on/on to/time for/into + next chapter): 33 vs 55 exclusions, Shah
+  released. Also widened recruiting "remote job"→"remote (job|role)" (leaked
+  CPO job ad found in validation). Deleted mock artifact
+  data/Joinee/raw/posts_20260624T090427Z.json (verified [DRY_RUN MOCK]
+  content first) so --skip-collect picks the real 06-22 dataset.
+  ENV BLOCKER (pre-existing, NOT caused by today's changes): pipeline smoke
+  run fails at sentence_transformers import — shell runs the "borus" poetry
+  venv (VIRTUAL_ENV set) which has transformers 4.57.6 vs
+  sentence-transformers 3.4.1 (incompatible after a borus-side upgrade in
+  the last 10 days); system Python 3.12 has no ML deps at all; repo has no
+  own venv. Pattern-level validation + pytest unaffected (no ML imports).
+  Options for operator at STOP: (a) create dedicated .venv for VVLeng
+  (recommended, isolates from borus, ~1-2GB torch download), (b) upgrade
+  sentence-transformers inside borus venv (touches another project's env).
+  Phase 4+ blocked on this + Phase 3 approval.
+
+## 2026-07-04 13:05
+Phase: run-sequence | Step: Phase 0 completed + Phase 3 classifier built
+Status: DONE (code) / IN PROGRESS (validation)
+Files changed: processor/post_scorer.py (_CAREER_TRANSITION_PATTERNS +
+  _HR_TOPIC_PATTERNS w/ 2-hit rule; _noise_reason() extended — new avoid reasons
+  "career transition / job seeking" and "HR-topic dominant"),
+  tests/test_noise_classifier.py (NEW, 5 tests)
+Test result: PASS — pytest 27/27 (one test initially asserted wrong label:
+  post with "hiring managers" is caught by the OLDER recruiting pattern first;
+  test rewritten to a pure-HR post; behavior itself was correct)
+Notes: PR #2 squash-merged to master (d162009) after operator's explicit
+  direction; feat/prompt-rewrite rebased onto master via
+  `rebase --onto origin/master infra/add-dry-run-mode` — now master + 3b2dc57
+  (prompt rewrite commit), stash pop clean, operator's pre-existing changes
+  intact. Prompt diffs APPROVED by operator at Phase 2 STOP. Deliberately NOT
+  duplicated in new patterns: "open to work", "new chapter", "excited/thrilled
+  to announce" — already caught by _ANNOUNCEMENT_PATTERNS. Next: validation
+  script over saved posts_20260622T180303Z.json + exclusion report → Phase 3
+  ⛔ STOP.
+
+## 2026-07-04 12:35
+Phase: run-sequence | Step: Phase 1 done + Phase 2 verified — committed, at first ⛔ STOP
+Status: DONE (Phases 1-2) / BLOCKED (awaiting operator: PR #2 merge + prompt-diff approval)
+Files changed: content/comment_gen.py (.format→.replace fix for {n_variants} crash;
+  POST_TEXT_WINDOW=1800 replaces 500/600 truncations for writer+judge; _strip_em_dashes()
+  applied to every variant), tests/test_comment_gen.py (NEW, 6 tests), plus operator's
+  own prompt rewrite committed (comment_system/user/rank_system/relevance_gate .txt)
+Test result: PASS — pytest 22/22 (16 existing + 6 new)
+Notes: Committed as one feat(content) commit on feat/prompt-rewrite. Phase 2 needed
+  NO edits — operator's comment_rank_system.txt rewrite already met every requirement
+  (bait-question penalty, register match, length fit, JSON format unchanged). Found
+  untracked content/prompts/comment_system-bak.txt (operator backup; *-bak.txt is NOT
+  gitignored — flagged for cleanup, not committed). Now at Phase 2 ⛔ STOP: prompt
+  diffs presented to operator. Waiting on: (1) operator merges PR #2 (gh pr merge 2
+  --squash) — then rebase feat/prompt-rewrite via `git rebase --onto master
+  infra/add-dry-run-mode feat/prompt-rewrite`; (2) operator approves prompt diffs →
+  proceed to Phase 3 (career-change/HR noise classifier).
+
+## 2026-07-04 12:05
+Phase: run-sequence (docs/CC_RUN_SEQUENCE_2026-07-04.md) | Step: Phase 0 (partial) + Phase 1 started
+Status: BLOCKED (Phase 0 merge) / IN PROGRESS (Phase 1)
+Files changed: none yet (branch ops + reads only)
+Test result: N/A
+Notes: Phase 0: pushed infra/add-dry-run-mode, opened PR #2
+  (github.com/rockid/VVLeng/pull/2). Squash-merge DENIED by CC permission
+  classifier (auto-merging own PR to master bypasses review checkpoint) —
+  operator must merge: `gh pr merge 2 --squash`. To keep moving, created
+  feat/prompt-rewrite FROM infra/add-dry-run-mode (carries operator's
+  uncommitted prompt rewrite); will `git rebase --onto master
+  infra/add-dry-run-mode feat/prompt-rewrite` after PR #2 merges.
+  Phase 1 findings: <examples> block confirmed fully removed from
+  comment_system.txt; comment_user.txt placeholders all covered by existing
+  format() kwargs; comment_rank_system.txt working-tree version ALREADY
+  satisfies all Phase 2 requirements (bait-question penalty, register match,
+  length fit, output format unchanged) — Phase 2 becomes verification-only.
+  Remaining Phase 1 edits: comment_gen.py .format→.replace fix, truncation
+  500/600→1800, em-dash strip + unit test.
+
+## 2026-07-04 11:30
+Phase: re-orientation | Step: Build strategy pack for Claude-chat plan-revision discussion
+Status: DONE
+Files changed: docs/strategy_pack_2026-07-04.md (NEW — self-contained: built-vs-planned
+  state, distillation of all 3 planning docs, run evidence, cost model, decision agenda,
+  operator questions)
+Test result: N/A (docs only)
+Notes: Read all three planning docs to distill: VVLeng_architecture.md (v1.0),
+  VVLeng_architecture_amendment_combined.md (2026-06-13, phases 0-5), and
+  architecture_amendment_phase2_people.md (2026-06-14/15, "APPROVED", Phase 1.5
+  waterfall + Phase 2 people pipeline — NEWER than the combined amendment and
+  entirely unbuilt; only its sortBy=relevance fix landed). Key framing surfaced
+  for the strategy chat: three overlapping plans coexist while the actually-built
+  path (relevance gate, blended ranking, comment judge, comment runner, carry-over
+  pool idea) appears in none of them — plan revision = pick one spine + reconcile.
+  Also confirmed data/Joinee/output contains NO commented_log_*.csv — zero field
+  results exist; flagged as the biggest evidence gap (pack §F asks the operator).
+  Pack deliberately left §F unanswered for the operator to fill before the chat.
+  Next session should start at: whatever the strategy chat decides; mechanical
+  next steps unchanged (push/PR TASK-1 branch, then prompt-rewrite branch with
+  {n_variants} fix — see 10:45 entry and project_status_2026-07-04.md).
+
+## 2026-07-04 10:45
+Phase: re-orientation | Step: Project status review after ~10-day pause; produce status doc for Claude chat discussion
+Status: DONE
+Files changed: docs/project_status_2026-07-04.md (NEW — self-contained status snapshot: pipeline state, two in-flight threads, next steps)
+Test result: N/A (read-only review; no code changed, smoke test not re-run)
+Notes: Two threads in flight: (A) infra/add-dry-run-mode — TASK-1 done, committed,
+  still not pushed/PR'd; (B) uncommitted prompt rewrite in content/prompts/*
+  (owner's own work, 07-03/07-04) + docs/CC_INSTRUCTIONS.md menu of supporting code
+  changes. BUG FOUND during review: revised comment_system.txt contains a literal
+  {n_variants} placeholder but comment_gen.py:109 renders it via .format(niche=niche)
+  → KeyError on any comment-gen run. The rewrite is NOT drop-in despite
+  CC_INSTRUCTIONS.md's claim; fix is a one-liner (use .replace like the ranker path,
+  or pass n_variants). Not fixed this session — review only, per user request.
+  Next session should start at: decide merge order (recommend: push+PR TASK-1 first,
+  then feat/content branch for prompt rewrite + n_variants fix + CC_INSTRUCTIONS
+  items 1-2), per docs/project_status_2026-07-04.md §5.
+
 ## 2026-06-24 12:10 (SESSION END)
 Phase: infra | Step: TASK-1 close-out — commit, secrets check, final smoke re-run
 Status: DONE
@@ -284,3 +501,37 @@ Status: DONE
 Files changed: run_pipeline.py
 Test result: PASS
 Notes: Added tag_posts_by_keyword_tier, apply_semantic_filter, apply_content_filters, print_filter_funnel, print_ranked_shortlist. Fixed numpy import scope. Fixed %d format string.
+## 2026-07-05 (pre-Phase-6 prompt tweak)
+Phase: 5.5 (operator feedback) | Step: writer+judge prompt micro-edits
+Status: DONE
+Files changed: content/prompts/comment_system.txt, content/prompts/comment_rank_system.txt
+Test result: N/A (prompt-text only; operator waived re-verification)
+Notes: (1) Writer blocklist: contrast-construction family banned as pattern (X isn't A it's B / not just X / X, not Y) - max one per comment, never as closing line. (2) Judge length-fit: equal variants -> shorter wins; 10-20 word sharp observation beats compressed essay unless post register is analytical. Awaiting possible 2nd fix from operator before Phase 6.
+
+## 2026-07-05 (Phase 6 start)
+Phase: 6 | Step: commit prompt edits + launch live run
+Status: DONE (commit) / IN PROGRESS (live run)
+Files changed: content/prompts/comment_system.txt, content/prompts/comment_rank_system.txt (commit e2ee1ce)
+Test result: N/A
+Notes: Operator gave explicit go-ahead for the Phase 6 live run (Apify + LLM, client Joinee, posts_per_keyword=35, max_post_age_days=14 temp). Launching full pipeline, log -> scratch/live_run_20260705.log. REMINDER after run: revert config.yaml max_post_age_days to 7; record Apify cost in docs/run_costs.md.
+
+## 2026-07-05 (during Phase 6 run)
+Phase: 6 | Step: token-leak hardening (operator request)
+Status: DONE
+Files changed: collector/apify_client.py
+Test result: PASS (pytest 29/29; live Bearer-auth check vs /users/me -> 200)
+Notes: Apify token moved from ?token= query param to Authorization: Bearer header at all 3 call sites (start/poll/dataset) - httpx logs full URLs at INFO, so the param leaked the token into run logs (e.g. scratch/live_run_20260705.log). .gitignore already covers *.log (no change needed). Running live pipeline unaffected (module loaded before edit). Next Apify call exercises the header path for real.
+
+## 2026-07-05 (Phase 6 complete)
+Phase: 6 | Step: live run + close-out
+Status: DONE
+Files changed: docs/run_costs.md (new), config.yaml (max_post_age_days 14->7 reverted), data/Joinee/output/* (generated, gitignored)
+Test result: PASS (pipeline exit 0)
+Notes: Live run funnel: 1624 collected (48 kw x 35) -> 325 semantic -> 196 content filters -> 111 gate-kept -> 81 targets / 30 avoid -> top-30 sheet (90 variants). Baseline 06-22 (at 50/kw): 2301 -> 498 -> 241 -> 136 -> 30. Career-transition classifier: 21 hits + 2 HR-dominant across the 1624 collected. Outputs: comment_sheet_2026-07-05.csv, comment_runner_2026-07-05.html (built via scratch/build_comment_ui.py - NOT pipeline-integrated, follow-up), 2026-07-05_plan.json. Apify cost $3.249 recorded in docs/run_costs.md (vs ~$4.60 implied at 50/kw). Remaining: commit close-out files, push, open PR; squash-merge only after operator eyeballs the live sheet.
+
+## 2026-07-05 (post-run improvement)
+Phase: post-6 | Step: promote comment-runner HTML into the pipeline
+Status: DONE (pending smoke-test confirmation)
+Files changed: planner/comment_runner.py (new), run_pipeline.py (auto-build after sheet write, fails soft), tests/test_comment_runner.py (3 new tests), docs/pipeline_runbook.md
+Test result: PASS (pytest 32/32; module output byte-identical to today's scratch-built runner; smoke test running)
+Notes: Operator confirmed the runner HTML is the working surface -> promoted scratch/build_comment_ui.py into planner/comment_runner.py, wired into run_pipeline behind the sheet write (skipped under --no-persist/--dry-run since no sheet is written). scratch/build_comment_ui.py left in place but superseded - candidate for deletion.
