@@ -62,8 +62,9 @@ def test_append_daily_log_happy_path(tmp_path, monkeypatch):
 
 
 def test_append_daily_log_dedup_guard(tmp_path, monkeypatch):
-    """If rows for (date, client) already exist, append is skipped."""
-    existing = [["2026-07-05", "Joinee"] + ["x"] * 15]
+    """If all action_ids for (date, client) already exist, append is skipped."""
+    existing = [["2026-07-05", "Joinee", "act_001"] + ["x"] * 14,
+                ["2026-07-05", "Joinee", "act_002"] + ["x"] * 14]
     ws = _make_ws(existing_rows=existing)
     sh = MagicMock()
     sh.worksheet.return_value = ws
@@ -72,6 +73,21 @@ def test_append_daily_log_dedup_guard(tmp_path, monkeypatch):
     sc.append_daily_log(_sample_dl_rows(), _make_config(), fallback_dir=str(tmp_path))
 
     ws.append_rows.assert_not_called()
+
+
+def test_append_daily_log_partial_dedup(tmp_path, monkeypatch):
+    """Only new action_ids are appended when some already exist."""
+    existing = [["2026-07-05", "Joinee", "act_001"] + ["x"] * 14]
+    ws = _make_ws(existing_rows=existing)
+    sh = MagicMock()
+    sh.worksheet.return_value = ws
+    monkeypatch.setattr(sc, "_get_client", lambda cfg: (MagicMock(), sh))
+
+    sc.append_daily_log(_sample_dl_rows(n=2), _make_config(), fallback_dir=str(tmp_path))
+
+    ws.append_rows.assert_called_once()
+    appended = ws.append_rows.call_args[0][0]
+    assert len(appended) == 1  # only act_002
 
 
 def test_append_daily_log_fallback_on_sheet_error(tmp_path, monkeypatch):

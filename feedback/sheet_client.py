@@ -70,12 +70,28 @@ def _fallback_csv(filename: str, rows: list[list], header: list[str]) -> None:
         logger.warning("feedback: fallback CSV write also failed: %s", e)
 
 
-def _already_exists(ws, date_str: str, client: str,
-                    date_col: int, client_col: int) -> bool:
-    """Return True if any data row matches (date, client) — dedup guard."""
+def _existing_action_ids(ws, date_str: str, client: str,
+                         date_col: int, client_col: int,
+                         action_id_col: int) -> set[str]:
+    """Return the set of action_ids already in the sheet for (date, client)."""
     try:
         all_rows = ws.get_all_values()
-        for row in all_rows[1:]:  # skip header
+        ids: set[str] = set()
+        for row in all_rows[1:]:
+            if len(row) > max(date_col, client_col, action_id_col):
+                if row[date_col] == date_str and row[client_col] == client:
+                    ids.add(row[action_id_col])
+        return ids
+    except Exception:
+        return set()
+
+
+def _already_exists(ws, date_str: str, client: str,
+                    date_col: int, client_col: int) -> bool:
+    """Return True if any data row matches (date, client) — used by run_costs."""
+    try:
+        all_rows = ws.get_all_values()
+        for row in all_rows[1:]:
             if (len(row) > max(date_col, client_col)
                     and row[date_col] == date_str
                     and row[client_col] == client):
@@ -117,15 +133,28 @@ def append_daily_log(rows: list[list], config, fallback_dir: str = ".") -> None:
 
     try:
         ws = sh.worksheet(_DAILY_LOG_TAB)
-        if _already_exists(ws, date_str, client_str, _DL_COL_DATE, _DL_COL_CLIENT):
+        # Per-action_id dedup: skip only the individual rows already present,
+        # so a --top-n all regen can append the new rows without duplicating the
+        # already-appended top-30.
+        _DL_COL_ACTION_ID = 2
+        existing = _existing_action_ids(
+            ws, date_str, client_str, _DL_COL_DATE, _DL_COL_CLIENT, _DL_COL_ACTION_ID
+        )
+        new_rows = [r for r in rows
+                    if len(r) > _DL_COL_ACTION_ID and r[_DL_COL_ACTION_ID] not in existing]
+        if not new_rows:
             logger.warning(
-                "feedback: daily_log already has rows for %s / %s — skipping append (rerun guard)",
-                client_str, date_str,
+                "feedback: all %d rows for %s / %s already in daily_log — skipping",
+                len(rows), client_str, date_str,
             )
             return
-
-        # Pad each row to 17 cols (M-Q blank for operator)
-        padded = [r + [""] * (_DAILY_LOG_TOTAL_COLS - len(r)) for r in rows]
+        if existing:
+            logger.info(
+                "feedback: %d rows already exist, appending %d new rows for %s / %s",
+                len(existing), len(new_rows), client_str, date_str,
+            )
+        # Pad each row to 17 cols (O-Q blank for operator)
+        padded = [r + [""] * (_DAILY_LOG_TOTAL_COLS - len(r)) for r in new_rows]
         ws.append_rows(padded, value_input_option="USER_ENTERED")
         logger.info("feedback: appended %d rows to daily_log", len(padded))
     except Exception as e:

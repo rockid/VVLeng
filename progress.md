@@ -1,5 +1,26 @@
 # VVLeng Progress Log
 
+## 2026-07-05 19:00
+Phase: finish-up | Step: Tasks 1-6 complete + --top-n all regen DONE + per-action_id dedup fix committed
+Status: DONE
+Files changed: feedback/sheet_client.py (per-action_id dedup: _existing_action_ids(),
+  updated append_daily_log), tests/test_feedback_sheet.py (partial-dedup test),
+  run_pipeline.py (--top-n, --runner flags, exclusion filter block),
+  scripts/setup_feedback_sheet.py (new schema/ergonomics),
+  docs/pipeline_runbook.md (feedback loop + flags updated)
+  Committed as b3e3e0a on feat/finish-up-20260705.
+  Per-action_id dedup fix: uncommitted (staged next).
+Test result: PASS — --top-n all regen exit 0, 81 posts × 243 variants generated;
+  sheet append: "30 rows already exist, appending 51 new rows" (dedup worked exactly).
+  source_keywords backfill: 0 rows to update — pipeline wrote matched_keywords
+  directly for new rows (no manual backfill needed).
+  Smoke test: running (b82smwc40).
+Notes: Schema migration complete (cols H=post_date, I=quality_score, J=source_keywords,
+  O-Q=operator). Run_costs dedup guard also worked ("already has a row — skipping").
+  Next: commit dedup fix + partial-dedup test to feat/finish-up-20260705, then PR.
+  Task 4 dry test (acceptance): once operator fills posted_at tonight, run standalone
+  load_exclusions() eyeball print. PR not yet created.
+
 ## 2026-07-05 02:25
 Phase: run-sequence | Step: Full execution report written (operator request)
 Status: DONE
