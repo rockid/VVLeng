@@ -567,3 +567,25 @@ Notes: source_keywords (col H) was blank in all 60 sheet rows because the retro-
   before the Authorization-header fix). 06-22 run_costs row has placeholder cost ($4.60);
   operator should update from Apify console. Next session: Phase 7 operator work (comment
   sheet → fill M-Q cols → export commented_log_2026-07-05.csv).
+
+## 2026-07-05 (finish-up, mid-session)
+Phase: finish-up | Step: Tasks 1-5 code implementation (CC_FINISH_UP_2026-07-05.md)
+Status: IN PROGRESS (smoke test pending sentence-transformers install)
+Files changed:
+  feedback/sheet_client.py — schema 12→14 pipeline cols, posted_at-based
+    unworked detection (replaces worked col), load_exclusions() function
+  run_pipeline.py — --top-n flag, --runner flag (runner now opt-in),
+    exclusion filter after tag, post_date+quality_score in dl_rows
+  scripts/setup_feedback_sheet.py — new schema headers, ergonomics batch
+    (freeze cols A-G, widths, wrap, TEXT format on posted_text, basic filter),
+    amber formula updated to Q+P empty check
+  tests/test_feedback_sheet.py — updated for new schema, 5 new tests
+    (load_exclusions x4, posted_text coercion)
+  scratch/migrate_daily_log_schema_20260705.py — one-shot sheet migration
+  scratch/backfill_source_kw_20260705.py — already run, kept for reference
+Test result: 18/18 pytest pass; smoke test blocked on sentence-transformers
+  missing from env (pre-existing — install running in background)
+Notes: Task 3 (--top-n all regen) stops at STOP gate — needs explicit go-ahead
+  for paid LLM call. Task 4 (load_exclusions dry test) stops at STOP gate —
+  operator must fill posted_at for first batch, then run the standalone print.
+  Migration script written but NOT run yet — run after smoke test confirms clean.

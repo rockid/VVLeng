@@ -25,9 +25,9 @@ _RUN_COSTS_TAB = "run_costs"
 _ENGAGEMENT_TAB = "engagement"
 _WEEKLY_TAB = "weekly"
 
-# Columns written by the pipeline in daily_log (A-L = indices 0-11).
-# M-Q are operator-filled and left blank on append.
-_DAILY_LOG_PIPELINE_COLS = 12   # A through L
+# Columns written by the pipeline in daily_log (A-N = indices 0-13).
+# O-Q are operator-filled and left blank on append.
+_DAILY_LOG_PIPELINE_COLS = 14   # A through N
 _DAILY_LOG_TOTAL_COLS = 17      # A through Q
 
 # Dedup key columns in daily_log: B (client, 0-based index 1) and A (date, 0).
@@ -87,12 +87,13 @@ def _already_exists(ws, date_str: str, client: str,
 
 def append_daily_log(rows: list[list], config, fallback_dir: str = ".") -> None:
     """
-    Append pipeline-filled daily_log rows (cols A-L per row; M-Q left blank)
+    Append pipeline-filled daily_log rows (cols A-N per row; O-Q left blank)
     to the feedback sheet.
 
-    Each row in ``rows`` must be a 12-element list matching the pipeline cols:
+    Each row in ``rows`` must be a 14-element list matching the pipeline cols:
     [date, client, action_id, post_url, author_name, author_tier,
-     rank, source_keywords, variant_1, variant_2, variant_3, judge_confidence]
+     rank, post_date, quality_score, source_keywords,
+     variant_1, variant_2, variant_3, judge_confidence]
 
     Skipped (with warning) if rows for this client+date already exist.
     Falls back to a local CSV on any sheet error.
@@ -109,7 +110,8 @@ def append_daily_log(rows: list[list], config, fallback_dir: str = ".") -> None:
             os.path.join(fallback_dir, f"feedback_fallback_{date_str}.csv"),
             rows,
             ["date","client","action_id","post_url","author_name","author_tier",
-             "rank","source_keywords","variant_1","variant_2","variant_3","judge_confidence"],
+             "rank","post_date","quality_score","source_keywords",
+             "variant_1","variant_2","variant_3","judge_confidence"],
         )
         return
 
@@ -132,7 +134,8 @@ def append_daily_log(rows: list[list], config, fallback_dir: str = ".") -> None:
             os.path.join(fallback_dir, f"feedback_fallback_{date_str}.csv"),
             rows,
             ["date","client","action_id","post_url","author_name","author_tier",
-             "rank","source_keywords","variant_1","variant_2","variant_3","judge_confidence"],
+             "rank","post_date","quality_score","source_keywords",
+             "variant_1","variant_2","variant_3","judge_confidence"],
         )
 
 
@@ -167,6 +170,75 @@ def append_run_cost(row: list, config, fallback_dir: str = ".") -> None:
         logger.info("feedback: appended run_costs row for %s", date_str)
     except Exception as e:
         logger.warning("feedback: run_costs append failed: %s", e)
+
+
+def load_exclusions(client: str, config, author_cooldown_days: int = 7) -> dict:
+    """
+    Read daily_log and return two exclusion sets for the next run:
+
+    - ``commented_post_urls``: URLs where ``posted_at`` is non-empty (permanent).
+    - ``touched_authors``: author_name values where ``posted_at`` is non-empty
+      and within ``author_cooldown_days`` of today (cooldown window).
+
+    Fail-soft: on any error (sheet unreachable, missing cols) emits a loud
+    WARNING and returns empty sets so the pipeline runs without exclusions.
+
+    The cooldown uses ``posted_at`` (when the operator commented), not the
+    run date, so the window is accurate even across multi-day backlogs.
+    """
+    empty = {"commented_post_urls": set(), "touched_authors": set()}
+    _gc, sh = _get_client(config)
+    if sh is None:
+        logger.warning(
+            "feedback: load_exclusions — sheet unreachable; running WITHOUT exclusions"
+        )
+        return empty
+    try:
+        ws = sh.worksheet(_DAILY_LOG_TAB)
+        all_rows = ws.get_all_values()
+        if len(all_rows) < 2:
+            return empty
+        header = all_rows[0]
+        try:
+            date_col = header.index("date")
+            client_col = header.index("client")
+            url_col = header.index("post_url")
+            author_col = header.index("author_name")
+            posted_at_col = header.index("posted_at")
+        except ValueError as e:
+            logger.warning("feedback: load_exclusions — column missing (%s); no exclusions", e)
+            return empty
+
+        cutoff = (date.today() - timedelta(days=author_cooldown_days)).isoformat()
+        commented_urls: set[str] = set()
+        touched_authors: set[str] = set()
+
+        for row in all_rows[1:]:
+            if len(row) <= max(date_col, client_col, url_col, author_col, posted_at_col):
+                continue
+            if row[client_col] != client:
+                continue
+            posted_at = row[posted_at_col].strip()
+            if not posted_at:
+                continue
+            url = row[url_col].strip()
+            if url:
+                commented_urls.add(url)
+            author = row[author_col].strip()
+            if author and posted_at >= cutoff:
+                touched_authors.add(author)
+
+        logger.info(
+            "feedback: exclusions loaded — %d commented URLs, %d authors in cooldown",
+            len(commented_urls), len(touched_authors),
+        )
+        return {"commented_post_urls": commented_urls, "touched_authors": touched_authors}
+
+    except Exception as e:
+        logger.warning(
+            "feedback: load_exclusions failed (%s); running WITHOUT exclusions", e
+        )
+        return empty
 
 
 def read_daily_log(since_date: str, config) -> list[dict]:
@@ -215,6 +287,7 @@ def print_end_of_run_checklist(config, run_date: Optional[str] = None) -> None:
         issues: list[str] = []
 
         # ── Unworked rows from previous dates ──────────────────────────────
+        # A row is "unworked" when posted_at AND reject_reason are both empty.
         try:
             dl_ws = sh.worksheet(_DAILY_LOG_TAB)
             dl_rows = dl_ws.get_all_values()
@@ -222,14 +295,16 @@ def print_end_of_run_checklist(config, run_date: Optional[str] = None) -> None:
                 header = dl_rows[0]
                 try:
                     date_idx = header.index("date")
-                    worked_idx = header.index("worked")
+                    posted_at_idx = header.index("posted_at")
+                    reject_idx = header.index("reject_reason")
                 except ValueError:
-                    date_idx, worked_idx = 0, 12
+                    date_idx, posted_at_idx, reject_idx = 0, 16, 15
                 unworked = [
                     r for r in dl_rows[1:]
-                    if len(r) > max(date_idx, worked_idx)
+                    if len(r) > max(date_idx, posted_at_idx, reject_idx)
                     and r[date_idx] < today
-                    and not r[worked_idx].strip()
+                    and not r[posted_at_idx].strip()
+                    and not r[reject_idx].strip()
                 ]
                 if unworked:
                     issues.append(
@@ -258,20 +333,20 @@ def print_end_of_run_checklist(config, run_date: Optional[str] = None) -> None:
                 try:
                     date_idx = header.index("date")
                     url_idx = header.index("post_url")
-                    worked_idx = header.index("worked")
+                    posted_at_idx = header.index("posted_at")
                 except ValueError:
-                    date_idx, url_idx, worked_idx = 0, 3, 12
+                    date_idx, url_idx, posted_at_idx = 0, 3, 16
 
                 from datetime import datetime
                 today_dt = datetime.fromisoformat(today)
                 tally_due = []
                 for r in dl_rows[1:]:
-                    if len(r) <= max(date_idx, url_idx, worked_idx):
+                    if len(r) <= max(date_idx, url_idx, posted_at_idx):
                         continue
                     row_date = r[date_idx]
-                    worked = r[worked_idx].strip().lower()
+                    posted_at = r[posted_at_idx].strip()
                     url = r[url_idx]
-                    if worked != "yes" or not row_date or not url:
+                    if not posted_at or not row_date or not url:
                         continue
                     try:
                         age_days = (today_dt - datetime.fromisoformat(row_date)).days

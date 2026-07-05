@@ -32,14 +32,19 @@ python run_pipeline.py --client Joinee
 # Reprocess already-collected posts (NO Apify spend). Gate runs (small LLM cost).
 python run_pipeline.py --client Joinee --skip-collect
 
+# Full regen against saved posts, ALL gate-kept posts (not just top-30):
+python run_pipeline.py --client Joinee --skip-collect --top-n all
+# ⛔ STOP before running — this costs LLM spend (gate-kept posts × gen+rank calls).
+
 # Free reprocess, no LLM at all (no gate, no comments):
 python run_pipeline.py --client Joinee --skip-collect --skip-llm --no-relevance-gate
 
 # Free full-pipeline dry run — mocks Apify + LLM calls, zero keys needed, no persistence:
 python run_pipeline.py --client Joinee --dry-run
 
-# Rebuild the operator comment UI from an existing sheet (normally automatic —
-# every run that writes a comment sheet also writes its runner HTML):
+# Build the HTML comment runner explicitly (off by default; sheet is primary surface):
+python run_pipeline.py --client Joinee --runner
+# Or rebuild from an existing sheet:
 python -c "from planner.comment_runner import build_comment_runner as b; b('data/Joinee/output/comment_sheet_2026-07-05.csv')"
 
 # Generate 5 content-post topic ideas from the corpus:
@@ -50,8 +55,9 @@ python scratch/topic_ideas.py
 **Flags:** `--skip-collect` (reuse newest saved `data/{client}/raw/posts*.json`), `--skip-llm`
 (no comments; also suppresses the gate), `--no-relevance-gate` (gate off), `--dry-run`
 (mocks Apify + LLM calls — zero cost, zero keys — implies `--no-persist`), `--no-persist`
-(print plan instead of writing CSV/plan files; live calls still fire), `--keywords "a,b"`,
-`--client X`.
+(print plan instead of writing CSV/plan files; live calls still fire), `--top-n N` (override
+comment-target limit; `all` or `0` = every gate-kept post), `--runner` (build HTML comment
+runner alongside the sheet; off by default), `--keywords "a,b"`, `--client X`.
 
 ## Outputs (`data/Joinee/output/`)
 
@@ -73,18 +79,20 @@ are the levers for eventual near-full automation (auto-post conf-5/safe, route t
 
 ## Key config (`clients/Joinee.yaml` / `config.yaml`)
 
-- `collection.posts_per_keyword: 50`, Apify `sortBy=relevance`, 1-week window.
+- `collection.posts_per_keyword: 35` (Joinee), Apify `sortBy=relevance`, 1-week window.
 - `filter.min_semantic_similarity: 0.35` (+ tier multipliers 1.0/1.2/0.85).
 - `scoring.min_comment_target_score: 0.45` (shortlist strictness; gate can override).
 - `action_limits.comments_per_day: 30`.
 
 ## Open items / next
 
-- **Operator feedback loop** — the Google Sheet `daily_log` tab (cols M–Q: `worked`, `variant_used`,
-  `posted_text`, `reject_reason`, `posted_at`) is now the feedback surface. Fill these in the sheet
-  directly after commenting; the HTML runner's "Export feedback CSV" button is a local backup only.
-  Pipeline doesn't yet read M–Q — when the feedback loop is built it will read from the sheet,
-  not a CSV file. Prerequisite for the carry-over pool.
+- **Operator feedback loop** — the Google Sheet `daily_log` tab (cols O–Q: `posted_text`,
+  `reject_reason`, `posted_at`) is the feedback surface. Fill after each commenting session.
+  Convention: `posted_at` non-empty = done; `reject_reason` non-empty + `posted_at` empty = skipped;
+  both empty = not yet worked. `posted_text`: enter `1`/`2`/`3` for the variant taken verbatim,
+  or paste your edited text. The pipeline reads these via `load_exclusions()` before each run:
+  commented post URLs are permanently excluded; authors commented on within 7 days are skipped
+  (cooldown configurable). Future: carry-over pool (uncommented fresh posts persist to next day).
 - **Carry-over / persistent post pool** — let un-commented fresh candidates persist into the next day's
   shortlist (bounded to ~48-72h comment-eligibility), and decouple collection cadence from commenting
   cadence (collect every 2-3 days, comment daily). Needs persistence (JSON pool MVP, then DB).

@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 
 DAILY_LOG_HEADERS = [
     "date", "client", "action_id", "post_url", "author_name", "author_tier",
-    "rank", "source_keywords",
+    "rank", "post_date", "quality_score", "source_keywords",
     "variant_1", "variant_2", "variant_3",
     "judge_confidence",
-    "worked", "variant_used", "posted_text", "reject_reason", "posted_at",
+    "posted_text", "reject_reason", "posted_at",
 ]
 
 ENGAGEMENT_HEADERS = [
@@ -86,7 +86,7 @@ _NAV_ROWS = [
     [],
     ["TABS", "FILLED BY", "PURPOSE"],
     ["nav", "—", "This reference card"],
-    ["daily_log", "Pipeline (A–L)  /  You (M–Q)", "One row per comment target per run. Fill M–Q after each session."],
+    ["daily_log", "Pipeline (A–N)  /  You (O–Q)", "One row per comment target per run. Fill O–Q after each session."],
     ["engagement", "You", "Fill at +72 h for every comment you posted."],
     ["weekly", "You", "One row every Monday with LinkedIn Analytics numbers."],
     ["run_costs", "Pipeline + You (F)", "One row per collection run. Fill apify_cost_usd from the Apify console."],
@@ -95,33 +95,33 @@ _NAV_ROWS = [
     ["Col", "Name", "Who fills", "Notes"],
     ["A", "date", "pipeline", "Run date YYYY-MM-DD"],
     ["B", "client", "pipeline", "e.g. Joinee"],
-    ["C", "action_id", "pipeline", "act_001 … act_030"],
+    ["C", "action_id", "pipeline", "act_001 … act_081"],
     ["D", "post_url", "pipeline", "LinkedIn post URL"],
     ["E", "author_name", "pipeline", ""],
     ["F", "author_tier", "pipeline", "tier1 / tier2"],
-    ["G", "rank", "pipeline", "1–30 position in today's sheet"],
-    ["H", "source_keywords", "pipeline", "All keywords that returned this post (comma-joined)"],
-    ["I", "variant_1", "pipeline", "Judge's top pick"],
-    ["J", "variant_2", "pipeline", ""],
-    ["K", "variant_3", "pipeline", ""],
-    ["L", "judge_confidence", "pipeline", "1–5. 5 = post blindly; 3 = worth a glance; 1 = rewrite."],
-    ["M", "worked", "YOU", "Dropdown: yes / skipped"],
-    ["N", "variant_used", "YOU", "Dropdown: 1 / 2 / 3 / edited"],
-    ["O", "posted_text", "YOU", "Paste final text if you edited (feeds the future few-shot block)"],
+    ["G", "rank", "pipeline", "Position in today's sheet (frozen cols A–G)"],
+    ["H", "post_date", "pipeline", "LinkedIn post publish date YYYY-MM-DD"],
+    ["I", "quality_score", "pipeline", "Blended rank_score (0–1, 2 dp)"],
+    ["J", "source_keywords", "pipeline", "All keywords that returned this post (comma-joined)"],
+    ["K", "variant_1", "pipeline", "Judge's top pick"],
+    ["L", "variant_2", "pipeline", ""],
+    ["M", "variant_3", "pipeline", ""],
+    ["N", "judge_confidence", "pipeline", "1–5. 5 = post blindly; 3 = worth a glance; 1 = rewrite."],
+    ["O", "posted_text", "YOU", "Enter 1/2/3 (variant taken verbatim) or paste your edited text"],
     ["P", "reject_reason", "YOU", "One word if skipped — off-niche, quality, timing, …"],
-    ["Q", "posted_at", "YOU", "Date posted (if worked = yes)"],
+    ["Q", "posted_at", "YOU", "Date posted — filling this marks the row DONE"],
     [],
     ["DAILY ROUTINE (5 min)"],
-    ["After commenting:", "Open daily_log → fill M–Q for each post you acted on."],
+    ["After commenting:", "Open daily_log → fill O–Q for each post you acted on."],
     ["At +72 h:", "Open engagement → add one row per posted comment."],
     ["Every Monday:", "Open weekly → add last week's LinkedIn Analytics numbers."],
     [],
     ["AMBER ROWS"],
-    ["A row turns amber when date < today AND worked (col M) is empty — backlog reminder."],
+    ["A row turns amber when date < today AND posted_at (col Q) AND reject_reason (col P) are both empty."],
     [],
     ["END-OF-RUN CHECKLIST"],
     ["The pipeline prints a checklist block at exit. Three signals:"],
-    ["⚠ unworked sheet rows", "Previous-date rows with col M blank."],
+    ["⚠ unworked sheet rows", "Previous-date rows where posted_at (Q) AND reject_reason (P) are both empty."],
     ["⚠ engagement tally due", "Comments posted 3–4 days ago with no engagement row yet."],
     ["⚠ weekly stats due", "Last weekly row is older than 7 days."],
     [],
@@ -227,8 +227,8 @@ def _add_dropdown(sh, ws, col_index: int, values: list[str]):
 
 
 def _add_amber_overdue(sh, ws):
-    """Amber background on daily_log rows where 'worked' (col M) is empty
-    and 'date' (col A) is older than today."""
+    """Amber on daily_log rows where posted_at (Q) AND reject_reason (P) are both
+    empty and date (A) is older than today — the operator hasn't acted yet."""
     sh.batch_update({"requests": [{
         "addConditionalFormatRule": {
             "rule": {
@@ -236,7 +236,7 @@ def _add_amber_overdue(sh, ws):
                 "booleanRule": {
                     "condition": {
                         "type": "CUSTOM_FORMULA",
-                        "values": [{"userEnteredValue": '=AND(A2<>"",A2<TODAY(),M2="")'}],
+                        "values": [{"userEnteredValue": '=AND(A2<>"",A2<TODAY(),Q2="",P2="")'}],
                     },
                     "format": {
                         "backgroundColor": {"red": 1.0, "green": 0.898, "blue": 0.6}
@@ -287,14 +287,58 @@ def main():
         else:
             logger.info("Sheet1 has data — left untouched")
 
-    # Data-validation dropdowns on daily_log cols M (worked) and N (variant_used)
-    # Col M = index 13, Col N = index 14 (1-based)
+    # ── daily_log ergonomics ────────────────────────────────────────────────
+    dl_id = daily_ws.id
     try:
-        _add_dropdown(sh, daily_ws, col_index=13, values=["yes", "skipped"])
-        _add_dropdown(sh, daily_ws, col_index=14, values=["1", "2", "3", "edited"])
-        logger.info("Dropdowns set on daily_log cols M and N")
+        sh.batch_update({"requests": [
+            # Freeze header row + cols A-G (through rank)
+            {"updateSheetProperties": {
+                "properties": {
+                    "sheetId": dl_id,
+                    "gridProperties": {"frozenRowCount": 1, "frozenColumnCount": 7},
+                },
+                "fields": "gridProperties.frozenRowCount,gridProperties.frozenColumnCount",
+            }},
+            # posted_text (col O = index 14) wide + wrap
+            {"updateDimensionProperties": {
+                "range": {"sheetId": dl_id, "dimension": "COLUMNS",
+                          "startIndex": 14, "endIndex": 15},
+                "properties": {"pixelSize": 400},
+                "fields": "pixelSize",
+            }},
+            # variant cols K-M (indices 10-12) readable width + wrap
+            {"updateDimensionProperties": {
+                "range": {"sheetId": dl_id, "dimension": "COLUMNS",
+                          "startIndex": 10, "endIndex": 13},
+                "properties": {"pixelSize": 300},
+                "fields": "pixelSize",
+            }},
+            # TEXT number format on posted_text (col O) — prevents Sheets
+            # coercing a bare "1" into a number, which breaks the 1/2/3 convention.
+            {"repeatCell": {
+                "range": {"sheetId": dl_id, "startRowIndex": 1,
+                          "startColumnIndex": 14, "endColumnIndex": 15},
+                "cell": {"userEnteredFormat": {
+                    "numberFormat": {"type": "TEXT"},
+                    "wrapStrategy": "WRAP",
+                }},
+                "fields": "userEnteredFormat(numberFormat,wrapStrategy)",
+            }},
+            # Wrap variant cols K-M
+            {"repeatCell": {
+                "range": {"sheetId": dl_id, "startRowIndex": 1,
+                          "startColumnIndex": 10, "endColumnIndex": 13},
+                "cell": {"userEnteredFormat": {"wrapStrategy": "WRAP"}},
+                "fields": "userEnteredFormat(wrapStrategy)",
+            }},
+            # Enable basic filter so operator can sort by post_date / quality_score
+            {"setBasicFilter": {
+                "filter": {"range": {"sheetId": dl_id, "startRowIndex": 0}}
+            }},
+        ]})
+        logger.info("daily_log ergonomics applied (freeze, widths, wrap, filter, TEXT format)")
     except Exception as e:
-        logger.warning("Could not set dropdowns (non-fatal): %s", e)
+        logger.warning("daily_log ergonomics failed (non-fatal): %s", e)
 
     # Amber conditional format on daily_log
     try:

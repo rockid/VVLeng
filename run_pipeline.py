@@ -378,6 +378,12 @@ def main():
                         help="Client ID (overrides config.yaml active_client)")
     parser.add_argument("--keywords", type=str, default=None,
                         help="Comma-separated keywords (overrides client config)")
+    parser.add_argument("--top-n", type=str, default=None,
+                        help="Comment targets to send to LLM: number, or 'all' / '0' for every "
+                             "gate-kept post. Default: comments_per_day from client config (30).")
+    parser.add_argument("--runner", action="store_true",
+                        help="Build the HTML comment runner after writing the comment sheet. "
+                             "Off by default; the sheet is the primary operator surface.")
     args = parser.parse_args()
 
     # Relevance gate runs by default; disabled explicitly or when no LLM spend
@@ -482,6 +488,29 @@ def main():
         posts = tag_posts_by_keyword_tier(posts, config)
 
     # =====================================================================
+    # 2b. EXCLUSION FILTER — drop already-commented URLs and cooldown authors
+    # =====================================================================
+    if posts and not args.dry_run:
+        from feedback.sheet_client import load_exclusions
+        excl = load_exclusions(config.client_id, config,
+                               author_cooldown_days=getattr(
+                                   getattr(config, "client", None),
+                                   "author_cooldown_days", 7))
+        commented_urls = excl["commented_post_urls"]
+        cooldown_authors = excl["touched_authors"]
+        if commented_urls or cooldown_authors:
+            n_before = len(posts)
+            posts = [
+                p for p in posts
+                if p.get("url") not in commented_urls
+                and p.get("author_name") not in cooldown_authors
+            ]
+            logger.info("Exclusion filter: %d → %d posts (%d URLs excluded, %d authors in cooldown)",
+                        n_before, len(posts),
+                        sum(1 for p in posts[:n_before] if p.get("url") in commented_urls),
+                        len(cooldown_authors))
+
+    # =====================================================================
     # 3. PROCESS — full funnel (semantic filter → content filters → score → rank)
     # =====================================================================
     if not args.skip_semantic and posts:
@@ -556,7 +585,18 @@ def main():
         ranked = list(zip(filtered_posts, scores))
         ranked.sort(key=lambda x: x[1].rank_score, reverse=True)
         comment_targets = [(p, s) for p, s in ranked if s.post_type == "comment_target"]
-        top_targets = comment_targets[:limit_comments]
+        top_n_arg = args.top_n
+        if top_n_arg is not None and top_n_arg.lower() in ("all", "0"):
+            top_targets = comment_targets
+        elif top_n_arg is not None:
+            try:
+                top_targets = comment_targets[:int(top_n_arg)]
+            except ValueError:
+                logger.warning("--top-n %r is not a valid number; using default %d",
+                               top_n_arg, limit_comments)
+                top_targets = comment_targets[:limit_comments]
+        else:
+            top_targets = comment_targets[:limit_comments]
 
         # Build the shortlist: top comment targets + any repost_candidates
         for_llm_posts = [p for p, _ in top_targets]
@@ -618,13 +658,12 @@ def main():
         sheet_path = write_comment_sheet(for_llm_posts, comments_map, config.output_dir)
         if sheet_path:
             logger.info("Comment sheet ready for manual placement: %s", sheet_path)
-            from planner.comment_runner import build_comment_runner
-            try:
-                build_comment_runner(sheet_path)
-            except Exception as e:
-                # The sheet is the primary deliverable; a runner-build failure
-                # must not fail the run after paid collect/LLM calls.
-                logger.warning("Comment runner build failed (sheet still usable): %s", e)
+            if args.runner:
+                from planner.comment_runner import build_comment_runner
+                try:
+                    build_comment_runner(sheet_path)
+                except Exception as e:
+                    logger.warning("Comment runner build failed (sheet still usable): %s", e)
 
     # =====================================================================
     # 6. PLAN
@@ -661,6 +700,9 @@ def main():
                 variants = comments_map.get(p.get("id", ""), [])
                 texts = [v.get("text", "") for v in variants]
                 kws = p.get("matched_keywords") or ([p.get("source_query")] if p.get("source_query") else [])
+                raw_date = p.get("posted_at") or ""
+                post_date = raw_date[:10] if raw_date else ""
+                quality_score = round(float(p.get("rank_score") or 0), 2)
                 dl_rows.append([
                     run_date,
                     config.client_id,
@@ -669,6 +711,8 @@ def main():
                     p.get("author_name", ""),
                     p.get("keyword_tier", ""),
                     i,
+                    post_date,
+                    quality_score,
                     ", ".join(kws),
                     texts[0] if len(texts) > 0 else "",
                     texts[1] if len(texts) > 1 else "",
