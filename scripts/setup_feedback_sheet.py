@@ -81,6 +81,129 @@ def _ensure_tab(sh, title: str, headers: list[str]):
     return ws
 
 
+_NAV_ROWS = [
+    ["VVLeng Feedback Sheet — Quick Reference"],
+    [],
+    ["TABS", "FILLED BY", "PURPOSE"],
+    ["nav", "—", "This reference card"],
+    ["daily_log", "Pipeline (A–L)  /  You (M–Q)", "One row per comment target per run. Fill M–Q after each session."],
+    ["engagement", "You", "Fill at +72 h for every comment you posted."],
+    ["weekly", "You", "One row every Monday with LinkedIn Analytics numbers."],
+    ["run_costs", "Pipeline + You (F)", "One row per collection run. Fill apify_cost_usd from the Apify console."],
+    [],
+    ["DAILY LOG — COLUMNS AT A GLANCE"],
+    ["Col", "Name", "Who fills", "Notes"],
+    ["A", "date", "pipeline", "Run date YYYY-MM-DD"],
+    ["B", "client", "pipeline", "e.g. Joinee"],
+    ["C", "action_id", "pipeline", "act_001 … act_030"],
+    ["D", "post_url", "pipeline", "LinkedIn post URL"],
+    ["E", "author_name", "pipeline", ""],
+    ["F", "author_tier", "pipeline", "tier1 / tier2"],
+    ["G", "rank", "pipeline", "1–30 position in today's sheet"],
+    ["H", "source_keywords", "pipeline", "All keywords that returned this post (comma-joined)"],
+    ["I", "variant_1", "pipeline", "Judge's top pick"],
+    ["J", "variant_2", "pipeline", ""],
+    ["K", "variant_3", "pipeline", ""],
+    ["L", "judge_confidence", "pipeline", "1–5. 5 = post blindly; 3 = worth a glance; 1 = rewrite."],
+    ["M", "worked", "YOU", "Dropdown: yes / skipped"],
+    ["N", "variant_used", "YOU", "Dropdown: 1 / 2 / 3 / edited"],
+    ["O", "posted_text", "YOU", "Paste final text if you edited (feeds the future few-shot block)"],
+    ["P", "reject_reason", "YOU", "One word if skipped — off-niche, quality, timing, …"],
+    ["Q", "posted_at", "YOU", "Date posted (if worked = yes)"],
+    [],
+    ["DAILY ROUTINE (5 min)"],
+    ["After commenting:", "Open daily_log → fill M–Q for each post you acted on."],
+    ["At +72 h:", "Open engagement → add one row per posted comment."],
+    ["Every Monday:", "Open weekly → add last week's LinkedIn Analytics numbers."],
+    [],
+    ["AMBER ROWS"],
+    ["A row turns amber when date < today AND worked (col M) is empty — backlog reminder."],
+    [],
+    ["END-OF-RUN CHECKLIST"],
+    ["The pipeline prints a checklist block at exit. Three signals:"],
+    ["⚠ unworked sheet rows", "Previous-date rows with col M blank."],
+    ["⚠ engagement tally due", "Comments posted 3–4 days ago with no engagement row yet."],
+    ["⚠ weekly stats due", "Last weekly row is older than 7 days."],
+    [],
+    ["SETUP"],
+    ["Run scripts/setup_feedback_sheet.py any time — it is idempotent (won't overwrite data)."],
+    ["Credentials: GSHEET_SERVICE_ACCOUNT_JSON and GSHEET_FEEDBACK_ID in .env"],
+    ["Full reference: docs/FEEDBACK_SHEET.md"],
+]
+
+
+def _ensure_nav_tab(sh) -> None:
+    """Create (or refresh) the nav reference-card tab — always rewritten so
+    it stays in sync with the schema even if setup is re-run months later."""
+    existing = {ws.title: ws for ws in sh.worksheets()}
+    if "nav" in existing:
+        nav_ws = existing["nav"]
+        logger.info("Tab 'nav' exists — refreshing content")
+        nav_ws.clear()
+    else:
+        # Insert as the first tab so it's always visible on open
+        nav_ws = sh.add_worksheet(title="nav", rows=60, cols=6)
+        sh.reorder_worksheets([nav_ws] + [ws for ws in sh.worksheets() if ws.title != "nav"])
+        logger.info("Created tab 'nav'")
+
+    nav_ws.update(range_name="A1", values=_NAV_ROWS)
+
+    # Format title row bold + slightly larger
+    try:
+        sh.batch_update({"requests": [
+            {
+                "repeatCell": {
+                    "range": {"sheetId": nav_ws.id, "startRowIndex": 0, "endRowIndex": 1},
+                    "cell": {"userEnteredFormat": {
+                        "textFormat": {
+                            "bold": True, "fontSize": 13,
+                            "foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
+                        },
+                        "backgroundColor": {"red": 0.17, "green": 0.24, "blue": 0.31},
+                    }},
+                    "fields": "userEnteredFormat(textFormat,backgroundColor)",
+                }
+            },
+            # Section header rows bold
+            *[
+                {
+                    "repeatCell": {
+                        "range": {"sheetId": nav_ws.id,
+                                  "startRowIndex": i, "endRowIndex": i + 1,
+                                  "startColumnIndex": 0, "endColumnIndex": 1},
+                        "cell": {"userEnteredFormat": {"textFormat": {"bold": True}}},
+                        "fields": "userEnteredFormat(textFormat)",
+                    }
+                }
+                for i, row in enumerate(_NAV_ROWS)
+                if row and len(row) == 1 and row[0] and row[0] != _NAV_ROWS[0][0]
+            ],
+            # "Who fills = YOU" rows highlighted light blue
+            *[
+                {
+                    "repeatCell": {
+                        "range": {"sheetId": nav_ws.id,
+                                  "startRowIndex": i, "endRowIndex": i + 1},
+                        "cell": {"userEnteredFormat": {
+                            "backgroundColor": {"red": 0.83, "green": 0.91, "blue": 0.98}
+                        }},
+                        "fields": "userEnteredFormat(backgroundColor)",
+                    }
+                }
+                for i, row in enumerate(_NAV_ROWS)
+                if len(row) >= 3 and row[2] == "YOU"
+            ],
+            # Auto-resize col A
+            {"autoResizeDimensions": {
+                "dimensions": {"sheetId": nav_ws.id, "dimension": "COLUMNS",
+                               "startIndex": 0, "endIndex": 4}
+            }},
+        ]})
+        logger.info("Nav tab formatting applied")
+    except Exception as e:
+        logger.warning("Nav tab formatting failed (non-fatal): %s", e)
+
+
 def _add_dropdown(sh, ws, col_index: int, values: list[str]):
     """Add a strict dropdown data-validation to a column (skipping header)."""
     sh.batch_update({"requests": [{
@@ -145,6 +268,7 @@ def main():
     logger.info("Opened: %s", sh.title)
 
     # Create / verify all tabs
+    _ensure_nav_tab(sh)
     daily_ws = _ensure_tab(sh, "daily_log", DAILY_LOG_HEADERS)
     _ensure_tab(sh, "engagement", ENGAGEMENT_HEADERS)
     _ensure_tab(sh, "weekly", WEEKLY_HEADERS)
