@@ -27,6 +27,9 @@ pytest-cov==6.0.0
 sentence-transformers>=2.7.0
 # CPU torch: pip install torch --index-url https://download.pytorch.org/whl/cpu
 
+# Google Sheets feedback (Phase I-10)
+gspread>=6.0.0
+
 # Phase 2+ (optional installs)
 # keybert==0.8.5
 # networkx==3.4.2

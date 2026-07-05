@@ -164,6 +164,19 @@ def apply_content_filters(posts: list[dict], config) -> tuple[list[dict], dict]:
                 len(posts2), stats["removed_low_engagement"])
 
     # --- 3. Duplicate text detection (prefix match) ---
+    # First pass: accumulate all source_query values per text prefix so that
+    # when the same post appears under multiple keywords only the survivor
+    # retains ALL the keywords that found it (used in source_keywords column
+    # of the feedback sheet).
+    prefix_keywords: dict[str, list[str]] = {}
+    for p in posts2:
+        prefix = (p.get("text") or "").strip()[:80].lower()
+        sq = (p.get("source_query") or "").strip()
+        if prefix not in prefix_keywords:
+            prefix_keywords[prefix] = []
+        if sq and sq not in prefix_keywords[prefix]:
+            prefix_keywords[prefix].append(sq)
+
     seen_prefixes = set()
     posts3 = []
     for p in posts2:
@@ -173,6 +186,7 @@ def apply_content_filters(posts: list[dict], config) -> tuple[list[dict], dict]:
             stats["removed_duplicate_text"] += 1
             continue
         seen_prefixes.add(prefix)
+        p["matched_keywords"] = prefix_keywords.get(prefix, [])
         posts3.append(p)
     logger.info("Filter duplicate text: %d kept / %d removed",
                 len(posts3), stats["removed_duplicate_text"])
@@ -631,6 +645,52 @@ def main():
     else:
         path = write_plan(plan, plans_dir=config.plans_dir)
         logger.info("Plan saved to %s", path)
+
+        # ── Feedback sheet append (fail-soft) ─────────────────────────────
+        # Only append when comments were actually generated — same guard as
+        # write_comment_sheet so a --skip-llm reprocess doesn't write sparse rows.
+        if not args.dry_run and comments_map and for_llm_posts:
+            from feedback.sheet_client import (
+                append_daily_log, append_run_cost, print_end_of_run_checklist,
+            )
+            run_date = plan.get("date", date.today().isoformat())
+
+            # Build daily_log rows from ranked comment-target posts
+            dl_rows = []
+            for i, p in enumerate(for_llm_posts, 1):
+                variants = comments_map.get(p.get("id", ""), [])
+                texts = [v.get("text", "") for v in variants]
+                kws = p.get("matched_keywords") or ([p.get("source_query")] if p.get("source_query") else [])
+                dl_rows.append([
+                    run_date,
+                    config.client_id,
+                    f"act_{i:03d}",
+                    p.get("url", ""),
+                    p.get("author_name", ""),
+                    p.get("keyword_tier", ""),
+                    i,
+                    ", ".join(kws),
+                    texts[0] if len(texts) > 0 else "",
+                    texts[1] if len(texts) > 1 else "",
+                    texts[2] if len(texts) > 2 else "",
+                    variants[0].get("confidence", "") if variants else "",
+                ])
+            append_daily_log(dl_rows, config, fallback_dir=config.output_dir)
+
+            # Build run_costs row
+            max_pkw = getattr(getattr(config, "client", None), "max_posts_per_keyword", None) \
+                      or getattr(getattr(config, "defaults", None), "max_posts_per_keyword", "")
+            append_run_cost([
+                run_date,
+                config.client_id,
+                len(posts),             # posts_collected (raw)
+                max_pkw,
+                len(keywords),
+                "",                     # apify_cost_usd — operator fills from console
+                "gpt-4.1-mini (gate + gen + rank)",
+            ], config, fallback_dir=config.output_dir)
+
+            print_end_of_run_checklist(config, run_date=run_date)
 
     # Summary
     llm_count = len(comments_map)
