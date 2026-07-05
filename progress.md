@@ -1,5 +1,26 @@
 # VVLeng Progress Log
 
+## 2026-07-05 19:00
+Phase: finish-up | Step: Tasks 1-6 complete + --top-n all regen DONE + per-action_id dedup fix committed
+Status: DONE
+Files changed: feedback/sheet_client.py (per-action_id dedup: _existing_action_ids(),
+  updated append_daily_log), tests/test_feedback_sheet.py (partial-dedup test),
+  run_pipeline.py (--top-n, --runner flags, exclusion filter block),
+  scripts/setup_feedback_sheet.py (new schema/ergonomics),
+  docs/pipeline_runbook.md (feedback loop + flags updated)
+  Committed as b3e3e0a on feat/finish-up-20260705.
+  Per-action_id dedup fix: uncommitted (staged next).
+Test result: PASS — --top-n all regen exit 0, 81 posts × 243 variants generated;
+  sheet append: "30 rows already exist, appending 51 new rows" (dedup worked exactly).
+  source_keywords backfill: 0 rows to update — pipeline wrote matched_keywords
+  directly for new rows (no manual backfill needed).
+  Smoke test: running (b82smwc40).
+Notes: Schema migration complete (cols H=post_date, I=quality_score, J=source_keywords,
+  O-Q=operator). Run_costs dedup guard also worked ("already has a row — skipping").
+  Next: commit dedup fix + partial-dedup test to feat/finish-up-20260705, then PR.
+  Task 4 dry test (acceptance): once operator fills posted_at tonight, run standalone
+  load_exclusions() eyeball print. PR not yet created.
+
 ## 2026-07-05 02:25
 Phase: run-sequence | Step: Full execution report written (operator request)
 Status: DONE
@@ -549,3 +570,43 @@ Status: DONE
 Files changed: run_pipeline.py (comments_map guard on feedback append), docs/FEEDBACK_SHEET.md (new)
 Test result: PASS (pytest 42/42)
 Notes: Phase 4 retro-load - daily_log 60 rows (30 x 06-22 + 30 x 07-05), both with variant text populated. run_costs 2 rows. Smoke-test bug fixed: feedback append now guarded by comments_map truthy (same as write_comment_sheet) so --skip-llm runs don't write sparse rows. Phase 5 - FEEDBACK_SHEET.md written. Ready to commit + PR.
+
+## 2026-07-05 (session-end)
+Phase: post-run cleanup | Step: source_keywords backfill + .gitignore + branch cleanup
+Status: DONE
+Files changed: scratch/backfill_source_kw_20260705.py (NEW — one-shot backfill script),
+  .gitignore (added *service*account*.json + gcp_*.json patterns)
+Test result: N/A
+Notes: source_keywords (col H) was blank in all 60 sheet rows because the retro-load
+  and comment-sheet paths don't carry that field. Raw Apify JSON (posts_20260705T071720Z.json)
+  has query.search per post; backfill script matched all 30 Joinee/2026-07-05 rows by URL
+  (0 misses) and wrote comma-joined keywords. 06-22 rows left blank — pre-feature, raw
+  data not on disk. Future live runs populate H automatically via matched_keywords in dl_rows.
+  Local branches feat/feedback-sheet, feat/feedback-sheet-clean, feat/prompt-rewrite deleted.
+  gitignore updated for GCP service-account key patterns (per CC_FEEDBACK_SHEET instruction).
+  Operator action still needed: rotate Apify token (old scratch/ logs had token in URLs
+  before the Authorization-header fix). 06-22 run_costs row has placeholder cost ($4.60);
+  operator should update from Apify console. Next session: Phase 7 operator work (comment
+  sheet → fill M-Q cols → export commented_log_2026-07-05.csv).
+
+## 2026-07-05 (finish-up, mid-session)
+Phase: finish-up | Step: Tasks 1-5 code implementation (CC_FINISH_UP_2026-07-05.md)
+Status: IN PROGRESS (smoke test pending sentence-transformers install)
+Files changed:
+  feedback/sheet_client.py — schema 12→14 pipeline cols, posted_at-based
+    unworked detection (replaces worked col), load_exclusions() function
+  run_pipeline.py — --top-n flag, --runner flag (runner now opt-in),
+    exclusion filter after tag, post_date+quality_score in dl_rows
+  scripts/setup_feedback_sheet.py — new schema headers, ergonomics batch
+    (freeze cols A-G, widths, wrap, TEXT format on posted_text, basic filter),
+    amber formula updated to Q+P empty check
+  tests/test_feedback_sheet.py — updated for new schema, 5 new tests
+    (load_exclusions x4, posted_text coercion)
+  scratch/migrate_daily_log_schema_20260705.py — one-shot sheet migration
+  scratch/backfill_source_kw_20260705.py — already run, kept for reference
+Test result: 18/18 pytest pass; smoke test blocked on sentence-transformers
+  missing from env (pre-existing — install running in background)
+Notes: Task 3 (--top-n all regen) stops at STOP gate — needs explicit go-ahead
+  for paid LLM call. Task 4 (load_exclusions dry test) stops at STOP gate —
+  operator must fill posted_at for first batch, then run the standalone print.
+  Migration script written but NOT run yet — run after smoke test confirms clean.

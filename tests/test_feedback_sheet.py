@@ -24,9 +24,9 @@ def _make_ws(existing_rows=None):
     ws = MagicMock()
     header = [
         "date","client","action_id","post_url","author_name","author_tier",
-        "rank","source_keywords","variant_1","variant_2","variant_3",
-        "judge_confidence","worked","variant_used","posted_text",
-        "reject_reason","posted_at",
+        "rank","post_date","quality_score","source_keywords",
+        "variant_1","variant_2","variant_3",
+        "judge_confidence","posted_text","reject_reason","posted_at",
     ]
     rows = [header] + (existing_rows or [])
     ws.get_all_values.return_value = rows
@@ -36,7 +36,8 @@ def _make_ws(existing_rows=None):
 def _sample_dl_rows(run_date="2026-07-05", client="Joinee", n=2):
     return [
         [run_date, client, f"act_{i:03d}", f"https://li.com/{i}",
-         f"Author {i}", "tier1", i, "kw1, kw2", f"v1_{i}", f"v2_{i}", f"v3_{i}", "4"]
+         f"Author {i}", "tier1", i, "2026-07-01", 0.72, "kw1, kw2",
+         f"v1_{i}", f"v2_{i}", f"v3_{i}", "4"]
         for i in range(1, n + 1)
     ]
 
@@ -57,12 +58,13 @@ def test_append_daily_log_happy_path(tmp_path, monkeypatch):
     appended = ws.append_rows.call_args[0][0]
     assert len(appended) == 2
     assert all(len(r) == 17 for r in appended), "rows must be padded to 17 cols"
-    assert appended[0][12] == ""   # col M (worked) blank — operator fills
+    assert appended[0][14] == ""   # col O (posted_text) blank — operator fills
 
 
 def test_append_daily_log_dedup_guard(tmp_path, monkeypatch):
-    """If rows for (date, client) already exist, append is skipped."""
-    existing = [["2026-07-05", "Joinee"] + ["x"] * 15]
+    """If all action_ids for (date, client) already exist, append is skipped."""
+    existing = [["2026-07-05", "Joinee", "act_001"] + ["x"] * 14,
+                ["2026-07-05", "Joinee", "act_002"] + ["x"] * 14]
     ws = _make_ws(existing_rows=existing)
     sh = MagicMock()
     sh.worksheet.return_value = ws
@@ -71,6 +73,21 @@ def test_append_daily_log_dedup_guard(tmp_path, monkeypatch):
     sc.append_daily_log(_sample_dl_rows(), _make_config(), fallback_dir=str(tmp_path))
 
     ws.append_rows.assert_not_called()
+
+
+def test_append_daily_log_partial_dedup(tmp_path, monkeypatch):
+    """Only new action_ids are appended when some already exist."""
+    existing = [["2026-07-05", "Joinee", "act_001"] + ["x"] * 14]
+    ws = _make_ws(existing_rows=existing)
+    sh = MagicMock()
+    sh.worksheet.return_value = ws
+    monkeypatch.setattr(sc, "_get_client", lambda cfg: (MagicMock(), sh))
+
+    sc.append_daily_log(_sample_dl_rows(n=2), _make_config(), fallback_dir=str(tmp_path))
+
+    ws.append_rows.assert_called_once()
+    appended = ws.append_rows.call_args[0][0]
+    assert len(appended) == 1  # only act_002
 
 
 def test_append_daily_log_fallback_on_sheet_error(tmp_path, monkeypatch):
@@ -131,10 +148,11 @@ def test_append_run_cost_dedup_guard(monkeypatch):
 def test_checklist_flags_unworked_rows(monkeypatch, capsys):
     yesterday = (date.today() - __import__("datetime").timedelta(days=1)).isoformat()
     dl_header = ["date","client","action_id","post_url","author_name","author_tier",
-                 "rank","source_keywords","variant_1","variant_2","variant_3",
-                 "judge_confidence","worked"]
+                 "rank","post_date","quality_score","source_keywords",
+                 "variant_1","variant_2","variant_3",
+                 "judge_confidence","posted_text","reject_reason","posted_at"]
     dl_rows = [[yesterday,"Joinee","act_001","http://x","A","tier1",
-                "1","kw","v1","v2","v3","4",""]]   # worked = blank
+                "1","2026-06-30","0.72","kw","v1","v2","v3","4","","",""]]   # posted_at = blank
 
     eng_header = ["posted_date","post_url","likes_on_our_comment","replies_on_our_comment",
                   "replier_profile_urls","author_replied","checked_at","notes"]
@@ -215,3 +233,96 @@ def test_unique_posts_get_single_keyword():
     assert len(kept) == 2
     assert kept[0]["matched_keywords"] == ["alumni engagement"]
     assert kept[1]["matched_keywords"] == ["community building"]
+
+
+# ── load_exclusions ───────────────────────────────────────────────────────────
+
+def _make_dl_ws_for_exclusions(rows):
+    ws = MagicMock()
+    header = ["date","client","action_id","post_url","author_name","author_tier",
+              "rank","post_date","quality_score","source_keywords",
+              "variant_1","variant_2","variant_3","judge_confidence",
+              "posted_text","reject_reason","posted_at"]
+    ws.get_all_values.return_value = [header] + rows
+    return ws
+
+
+def test_load_exclusions_commented_url(monkeypatch):
+    """Posted URLs appear in commented_post_urls."""
+    today = date.today().isoformat()
+    rows = [
+        ["2026-07-05","Joinee","act_001","https://li.com/p1","Alice","tier1",
+         "1","2026-07-01","0.72","kw","v1","v2","v3","4","1","",""],        # no posted_at
+        ["2026-07-05","Joinee","act_002","https://li.com/p2","Bob","tier1",
+         "2","2026-07-01","0.68","kw","v1","v2","v3","4","1","",today],     # posted
+    ]
+    ws = _make_dl_ws_for_exclusions(rows)
+    sh = MagicMock()
+    sh.worksheet.return_value = ws
+    monkeypatch.setattr(sc, "_get_client", lambda cfg: (MagicMock(), sh))
+
+    excl = sc.load_exclusions("Joinee", _make_config())
+    assert "https://li.com/p2" in excl["commented_post_urls"]
+    assert "https://li.com/p1" not in excl["commented_post_urls"]
+
+
+def test_load_exclusions_author_cooldown(monkeypatch):
+    """Author with recent posted_at appears in touched_authors within cooldown."""
+    today = date.today().isoformat()
+    old_date = "2020-01-01"
+    rows = [
+        ["2026-07-05","Joinee","act_001","https://li.com/p1","Alice","tier1",
+         "1","2026-07-01","0.72","kw","v1","v2","v3","4","1","",today],    # recent — in cooldown
+        ["2026-07-05","Joinee","act_002","https://li.com/p2","Bob","tier1",
+         "2","2026-07-01","0.68","kw","v1","v2","v3","4","1","",old_date],  # old — not in cooldown
+    ]
+    ws = _make_dl_ws_for_exclusions(rows)
+    sh = MagicMock()
+    sh.worksheet.return_value = ws
+    monkeypatch.setattr(sc, "_get_client", lambda cfg: (MagicMock(), sh))
+
+    excl = sc.load_exclusions("Joinee", _make_config(), author_cooldown_days=7)
+    assert "Alice" in excl["touched_authors"]
+    assert "Bob" not in excl["touched_authors"]
+
+
+def test_load_exclusions_fail_soft(monkeypatch):
+    """Returns empty sets when sheet is unreachable — never raises."""
+    monkeypatch.setattr(sc, "_get_client", lambda cfg: (None, None))
+    excl = sc.load_exclusions("Joinee", _make_config())
+    assert excl == {"commented_post_urls": set(), "touched_authors": set()}
+
+
+def test_load_exclusions_ignores_other_clients(monkeypatch):
+    """Rows for a different client are not included in exclusions."""
+    today = date.today().isoformat()
+    rows = [
+        ["2026-07-05","OtherClient","act_001","https://li.com/p1","Alice","tier1",
+         "1","2026-07-01","0.72","kw","v1","v2","v3","4","1","",today],
+    ]
+    ws = _make_dl_ws_for_exclusions(rows)
+    sh = MagicMock()
+    sh.worksheet.return_value = ws
+    monkeypatch.setattr(sc, "_get_client", lambda cfg: (MagicMock(), sh))
+
+    excl = sc.load_exclusions("Joinee", _make_config())
+    assert len(excl["commented_post_urls"]) == 0
+    assert len(excl["touched_authors"]) == 0
+
+
+# ── posted_text coercion (variant indicator 1/2/3) ───────────────────────────
+
+def test_posted_text_coercion():
+    """Normalize posted_text: int, float, padded string, real text, all handled."""
+    def _normalize(val):
+        s = str(val).strip()
+        if s.endswith(".0") and s[:-2].isdigit():
+            s = s[:-2]
+        return s
+
+    assert _normalize(1) == "1"
+    assert _normalize(1.0) == "1"
+    assert _normalize("1") == "1"
+    assert _normalize("  2 ") == "2"
+    assert _normalize("Great observation!") == "Great observation!"
+    assert _normalize(3.0) == "3"
