@@ -610,3 +610,36 @@ Notes: Task 3 (--top-n all regen) stops at STOP gate — needs explicit go-ahead
   for paid LLM call. Task 4 (load_exclusions dry test) stops at STOP gate —
   operator must fill posted_at for first batch, then run the standalone print.
   Migration script written but NOT run yet — run after smoke test confirms clean.
+
+
+## 2026-07-07 10:08
+Phase: N/A (client onboarding, not architecture phase work) | Step: validate/remap vivendix.yaml
+Status: DONE
+Files changed: clients/vivendix.yaml (rewritten), docs/vivendix_strategy.md (new)
+Test result: PASS - load_config(client_id_override='vivendix') loads cleanly;
+  `python run_pipeline.py --client vivendix --dry-run` runs end-to-end with no
+  crash (0 comment targets is expected - mock dry-run post text is generic and
+  won't semantically match any real client niche, same as it would for Joinee).
+Notes: User pasted a hand-written clients/vivendix.yaml drafted in a separate
+  Claude chat that was unaware of this repo's schema. It (1) failed to parse -
+  YAML syntax error at old line 222, unquoted `: "` inside a list item, and
+  (2) even fixed, used a wholly different schema (persona/icp/routes/angles/
+  constraints/cadence/thresholds) that config_loader.py's ClientConfig does not
+  read - those keys would have been silently dropped (niche/keywords/scoring/etc.
+  would fall back to empty/defaults with zero error). Confirmed via code read
+  that operator_linkedin_id and graph_traversal_enabled are declared but never
+  read anywhere (pre-existing dead fields, also present in Joinee.yaml - not
+  something I fixed), and that persona.voice_ref (pointing at a per-client
+  prompt file) has no loader - load_prompt() only reads fixed global files
+  under content/prompts/. Rewrote clients/vivendix.yaml to match Joinee.yaml's
+  actual schema, remapping keyword tiers (NOT-clause baked in per Joinee
+  convention), niche/pain vocabulary derived from the ICP psychology, and
+  scoring/filter thresholds per the original draft's INHERIT_JOINEE markers.
+  Moved the un-mappable strategy content (persona, ICP psychology, angles,
+  hard constraints, Route 1/3 notes) to docs/vivendix_strategy.md so it isn't
+  lost, with an explicit note that none of it is pipeline-consumed today.
+  Remaining TODOs (flagged inline in the yaml): influencer_watchlist is empty
+  (buckets were unpopulated placeholders), cost_limits budget is an unconfirmed
+  template default, and action_limits beyond comments_per_day inherit Joinee's
+  numbers since Vivendix didn't specify them. Nothing committed yet - both
+  files are untracked in git status, awaiting user's go-ahead to commit.

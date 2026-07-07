@@ -1,0 +1,157 @@
+# vivendix.yaml — VVLeng client config, remapped to match config_loader.py's
+# ClientConfig schema (2026-07-07). The original draft (persona/icp/routes/
+# angles/constraints) used a different, incompatible schema and also had a
+# YAML syntax error (unquoted ": " inside a list item, old line 222) that made
+# it fail to parse entirely. That content wasn't lost — it's preserved in
+# docs/vivendix_strategy.md, but note it has NO current wiring into the
+# pipeline (no per-client prompt loader exists; load_prompt() only reads
+# fixed files under content/prompts/). Treat angle-tagging/persona-injection
+# as a future feature, not something this file can express yet.
+#
+# STILL PENDING (see docs/vivendix_strategy.md for detail):
+# - influencer_watchlist handles (buckets are unpopulated placeholders)
+# - cost_limits budget (no Vivendix-specific number was given; using
+#   conservative template defaults — confirm before a live run)
+# - action_limits.connections_per_day / visits_per_day / reposts_per_week
+#   (only comments_per_day was specified; the rest inherit Joinee's numbers)
+
+# ── Identity ──────────────────────────────────────────────────────────
+client_id: "vivendix"
+display_name: "Vivendix"
+
+# ── Niche definition ────────────────────────────────────────────────────
+niche:
+  product_description: "Algorithmic marketing agency for post-PMF online business founders whose growth has plateaued. Replaces ad-hoc freelancers, underqualified first marketing hires, and expensive $5-10k+/mo retainer agencies with a systematic, algorithm-driven execution model that pairs expert-grade channel work (SEO, content, cold email, paid, organic) with the daily disciplined execution and measure-learn-adjust loop that most founders, and even most hired marketers, can't sustain by hand."
+
+  primary_use_case: "Turning a stalled post-PMF growth plateau into a systematic, measured marketing engine without a $5-10k+/mo agency retainer or a risky first marketing hire"
+
+  expanding_use_cases:
+    - "Replacing a first marketing hire that underperformed"
+    - "Structuring founder-led sales into a repeatable, measured pipeline"
+    - "Diagnosing why SEO, ads, or cold email 'stopped working' (execution and measurement gaps, not channel failure)"
+    - "Building content and outbound systems SME founders can trust without an in-house marketing team"
+
+  target_audience:
+    - "Online business founders, post-PMF, $2M+ annual revenue, growth plateaued"
+    - "20+ person teams with no dedicated marketing department"
+    - "Founders who tried and dropped SEO, paid ads, cold email, or a junior marketing hire"
+
+  pain_vocabulary:
+    - "growth plateau"
+    - "agency didn't work"
+    - "fired our agency"
+    - "tried everything, nothing worked"
+    - "ran out of referrals"
+    - "pipeline dried up"
+    - "founder-led sales ceiling"
+    - "cold email reply rate"
+    - "marketing feels like a black box"
+    - "first marketing hire failed"
+    - "agency retainer not worth it"
+
+# ── Keywords — three tiers ────────────────────────────────────────────
+# NOT clause baked into every query string, matching Joinee's convention —
+# short canonical exclusion set here; the broader block list lives in
+# filter.blocked_substrings below (applied post-collection).
+keywords:
+  tier1_direct:
+    - marketing agency didn't work NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - fired our agency NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - tried everything, nothing worked NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - growth has stalled NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - plateau revenue NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - ran out of referrals NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - cold email reply rate NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - pipeline dried up NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - founder-led sales ceiling NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - first marketing hire NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - marketing feels like a black box NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+
+  tier2_lateral:
+    - fractional CMO NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - in-house vs agency NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - LinkedIn for founders NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - content that converts NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - marketing without ad spend NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - predictable pipeline NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - hired a marketer, no results NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+    - agency retainer worth it NOT hiring NOT "open to work" NOT "my agency helps" NOT "DM me"
+
+  tier3_platforms:
+    # Vivendix's tier3 is broad reach/topic terms rather than platform names
+    # (unlike Joinee's tier3, which lists actual competitor software).
+    # People discovery only — do NOT use for commenting queue.
+    - bootstrapped growth NOT hiring NOT "open to work"
+    - SME marketing NOT hiring NOT "open to work"
+    - SaaS growth channels NOT hiring NOT "open to work"
+
+# ── Collection settings ────────────────────────────────────────────────
+collection:
+  posts_per_keyword: 35          # INHERIT_JOINEE per original draft
+  min_engagement_tier1: 10
+  min_engagement_tier2: 10
+  min_engagement_tier3: 10
+  graph_traversal_enabled: false
+
+# ── Semantic filter ───────────────────────────────────────────────────
+filter:
+  min_semantic_similarity: 0.35   # INHERIT_JOINEE per original draft
+  blocked_substrings:
+    # HR / job announcement noise — same generic set as Joinee
+    - "hiring"
+    - "we're hiring"
+    - "job opening"
+    - "job opportunity"
+    - "open position"
+    - "we are recruiting"
+    - "open to work"
+    - "open to opportunities"
+    - "new role"
+    - "new chapter"
+    - "new position"
+    - "thrilled to announce"
+    - "excited to announce"
+    - "excited to share"
+    - "pleased to announce"
+    - "happy to share that I"
+    - "I am thrilled"
+    - "I'm thrilled"
+    - "joining the team"
+    - "join our team"
+    - "congratulations on your new"
+    - "congrats on your new"
+    - "promoted to"
+    # Vivendix-specific noise (from original not_blocks list)
+    - "my agency helps"
+    - "DM me"
+    - "course"
+    - "web3"
+    - "pre-seed"
+    - "idea validation"
+    - "MLM"
+
+# ── Scoring ───────────────────────────────────────────────────────────
+scoring:
+  tier_a_threshold: 0.65
+  tier_b_threshold: 0.40
+  influencer_follower_threshold: 5000
+  min_score_for_signal: 6
+  min_comment_target_score: 0.45
+
+# ── Action limits ─────────────────────────────────────────────────────
+action_limits:
+  connections_per_day: 20
+  comments_per_day: 30
+  visits_per_day: 20
+  reposts_per_week: 2             # TODO: confirm — not specified for Vivendix, inherited from Joinee
+
+# ── Influencer watchlist (Route 1) ────────────────────────────────────
+# TODO: empty — original draft's buckets (bootstrapping_saas_growth,
+# founder_led_sales, agency_critique_marketing_ops, sme_operators) were all
+# unpopulated placeholders. See docs/vivendix_strategy.md for selection_rule.
+influencer_watchlist: []
+
+# ── Cost limits ───────────────────────────────────────────────────────
+cost_limits:
+  daily_apify_budget_usd: 3.00
+  monthly_apify_budget_usd: 60.00
