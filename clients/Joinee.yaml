@@ -55,58 +55,69 @@ niche:
 
 keywords:
   tier1_direct:
-    # Top performers kept; bottom 7 replaced with broader pain/role terms
-    - community management platform NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - online community platform NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - member engagement platform NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community building software NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community operations NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - alumni community platform NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community activation NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - accelerator community management NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community retention NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community engagement software NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community-led growth NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - network engagement platform NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - member engagement NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community engagement NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - alumni engagement NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - cohort retention NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - low member engagement NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community manager NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - head of community NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - customer retention community NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
+    # 2026-07-13: dropped "NOT thrilled" from suffix (fixed 5 queries silently over the
+    # 85-char limit; career-transition classifier already catches that pattern downstream).
+    # Cut "network engagement platform" (0% post rate over run-4 sample). Added
+    # "community engagement platform" as a direct lookalike of the winning
+    # "member engagement platform" / "community manager" cluster.
+    - community management platform NOT hiring NOT "new role" NOT "new chapter"
+    - online community platform NOT hiring NOT "new role" NOT "new chapter"
+    - member engagement platform NOT hiring NOT "new role" NOT "new chapter"
+    - community building software NOT hiring NOT "new role" NOT "new chapter"
+    - community operations NOT hiring NOT "new role" NOT "new chapter"
+    - alumni community platform NOT hiring NOT "new role" NOT "new chapter"
+    - community activation NOT hiring NOT "new role" NOT "new chapter"
+    - accelerator community management NOT hiring NOT "new role" NOT "new chapter"
+    - community retention NOT hiring NOT "new role" NOT "new chapter"
+    - community engagement software NOT hiring NOT "new role" NOT "new chapter"
+    - community-led growth NOT hiring NOT "new role" NOT "new chapter"
+    - community engagement platform NOT hiring NOT "new role" NOT "new chapter"
+    - member engagement NOT hiring NOT "new role" NOT "new chapter"
+    - community engagement NOT hiring NOT "new role" NOT "new chapter"
+    - alumni engagement NOT hiring NOT "new role" NOT "new chapter"
+    - cohort retention NOT hiring NOT "new role" NOT "new chapter"
+    - low member engagement NOT hiring NOT "new role" NOT "new chapter"
+    - community manager NOT hiring NOT "new role" NOT "new chapter"
+    - head of community NOT hiring NOT "new role" NOT "new chapter"
+    - customer retention community NOT hiring NOT "new role" NOT "new chapter"
 
   tier2_lateral:
-    # Best run-3 performers kept; zero-yield dropped; pain/role terms added
-    - Slack community NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - knowledge sharing community NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - startup ecosystem building NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - membership community growth NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community as moat NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - mentorship platform NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - bootcamp alumni network NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - accelerator portfolio network NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - customer success community NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - B2B customer retention strategy NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - SME customer engagement NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - churn reduction SaaS NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - product-led community NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - peer-to-peer engagement NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - behavioral engagement design NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - Discord community NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community lead NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - community director NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - member retention NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - engagement drop NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - ghost community NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - dead Slack NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - members not engaging NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - course completion NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - fintech community NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - bank customer engagement NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - ambassador program NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
-    - advocate marketing NOT hiring NOT "new role" NOT "new chapter" NOT thrilled
+    # 2026-07-13: dropped "NOT thrilled" from suffix (see tier1 note). Cut 5 keywords:
+    # "mentorship platform" (0% post rate), "bootcamp alumni network" (0% post rate,
+    # only 27 posts/wk total supply), "accelerator portfolio network" (same noise
+    # pattern as bootcamp/accelerator, was already over 85-char limit), "churn reduction
+    # SaaS" (only 22 posts/wk total supply, untested quality, not worth the pagination
+    # cost of a near-empty query), "fintech community" (0% post rate, product-announcement
+    # noise). Added 5 lookalikes of confirmed winners (community-as-moat / community-ops /
+    # startup-ecosystem / member-retention clusters, all >=60% post rate in run-4 sample).
+    - Slack community NOT hiring NOT "new role" NOT "new chapter"
+    - knowledge sharing community NOT hiring NOT "new role" NOT "new chapter"
+    - startup ecosystem building NOT hiring NOT "new role" NOT "new chapter"
+    - membership community growth NOT hiring NOT "new role" NOT "new chapter"
+    - community as moat NOT hiring NOT "new role" NOT "new chapter"
+    - customer success community NOT hiring NOT "new role" NOT "new chapter"
+    - B2B customer retention strategy NOT hiring NOT "new role" NOT "new chapter"
+    - SME customer engagement NOT hiring NOT "new role" NOT "new chapter"
+    - product-led community NOT hiring NOT "new role" NOT "new chapter"
+    - peer-to-peer engagement NOT hiring NOT "new role" NOT "new chapter"
+    - behavioral engagement design NOT hiring NOT "new role" NOT "new chapter"
+    - Discord community NOT hiring NOT "new role" NOT "new chapter"
+    - community lead NOT hiring NOT "new role" NOT "new chapter"
+    - community director NOT hiring NOT "new role" NOT "new chapter"
+    - member retention NOT hiring NOT "new role" NOT "new chapter"
+    - engagement drop NOT hiring NOT "new role" NOT "new chapter"
+    - ghost community NOT hiring NOT "new role" NOT "new chapter"
+    - dead Slack NOT hiring NOT "new role" NOT "new chapter"
+    - members not engaging NOT hiring NOT "new role" NOT "new chapter"
+    - course completion NOT hiring NOT "new role" NOT "new chapter"
+    - bank customer engagement NOT hiring NOT "new role" NOT "new chapter"
+    - ambassador program NOT hiring NOT "new role" NOT "new chapter"
+    - advocate marketing NOT hiring NOT "new role" NOT "new chapter"
+    - community program management NOT hiring NOT "new role" NOT "new chapter"
+    - community strategy NOT hiring NOT "new role" NOT "new chapter"
+    - founder community building NOT hiring NOT "new role" NOT "new chapter"
+    - retention playbook community NOT hiring NOT "new role" NOT "new chapter"
+    - engagement recovery community NOT hiring NOT "new role" NOT "new chapter"
 
   tier3_platforms:
     # People discovery only — do NOT use for commenting queue
@@ -132,6 +143,11 @@ collection:
   posts_per_keyword: 35          # relevance-sorted; cut from 50 after top-N analysis
                                  # (2026-07-04: 76% of gate-kept posts sat at pos <=30,
                                  # decision-rule band 70-85% -> 35; operator-approved)
+  # 2026-07-13: FLAG — daily_log shows posts with reject_reason "zero engagement" /
+  # "low engagement" reaching the sheet, which shouldn't happen if this is enforced at
+  # collection time. Check whether this field is actually wired into the collection
+  # code (or whether it's being applied to a different field than post engagement
+  # count). Left values unchanged pending that check — see run-4 keyword-only test.
   min_engagement_tier1: 10
   min_engagement_tier2: 10
   min_engagement_tier3: 10
