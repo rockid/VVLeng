@@ -41,3 +41,7 @@ gcp_*.json
 
 # Docker
 docker-compose.override.yml
+
+# Archived stray/untracked files swept up during cleanup — never committed,
+# kept locally in case anything needs recovering.
+_archive/

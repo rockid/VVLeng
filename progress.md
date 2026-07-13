@@ -840,3 +840,26 @@ Notes: Scope: only the *sheet-affecting* date (daily_log/run_costs rows) was
   flag (e.g. --run-date) - not asked for, and the auto-derived-from-filename
   behavior covers the actual failure mode (--skip-collect across a date
   boundary) without adding surface area.
+
+## 2026-07-13 (workspace cleanup)
+Phase: N/A (housekeeping) | Step: archive stray untracked scratch/docs files
+Status: DONE
+Files changed: .gitignore (added _archive/ ignore rule)
+Test result: N/A
+Notes: Operator asked to clean up "stray scratch and docs files" - the pile of
+  untracked (never-committed) files that had accumulated across many past
+  sessions (docs/strategy_pack_2026-07-04.md, project_status snapshots,
+  CC_INSTRUCTIONS.md, etc.; scratch/*.py one-off scripts and *.json/*.txt run
+  outputs; clients/Joinee.yaml.bak2; content/prompts/comment_system-bak.txt;
+  plus gitignored *.log run logs sitting in scratch/). Since none of these
+  were ever committed, `rm` would have been permanent, and several of the
+  docs/ files looked like real deliverables (strategy pack, run-sequence
+  report) referenced repeatedly in this log - not obvious junk. Moved
+  everything into _archive/20260713_scratch_docs_cleanup/ (preserving
+  relative paths) instead of deleting, and added _archive/ to .gitignore so
+  it doesn't itself reappear as clutter. Verified via git status that
+  everything left in scratch/ and docs/ afterward is properly tracked in git
+  (pipeline_runbook.md, run_tier1_tier2.py, topic_ideas.py, etc.) - nothing
+  under version control was touched. Working tree is now clean except the
+  .gitignore edit, which is uncommitted pending operator confirmation (not
+  explicitly asked to commit this one).
