@@ -643,3 +643,200 @@ Notes: User pasted a hand-written clients/vivendix.yaml drafted in a separate
   template default, and action_limits beyond comments_per_day inherit Joinee's
   numbers since Vivendix didn't specify them. Nothing committed yet - both
   files are untracked in git status, awaiting user's go-ahead to commit.
+
+## 2026-07-13 (live run launched)
+Phase: run-sequence (updated keyword config) | Step: launch full live E2E run, client Joinee
+Status: IN PROGRESS
+Files changed: none yet (clients/Joinee.yaml + config.yaml already had the
+  operator's own uncommitted keyword-config edits in place before this session
+  started - dropped "NOT thrilled" suffix, cut 6 low-yield keywords, added 6
+  lookalikes, tier1/tier2 still 20/28; verified via git diff, matches operator's
+  description exactly. Untracked clients/Joinee.yaml.bak2 left alone.)
+Test result: N/A yet - run in progress
+Notes: `PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python run_pipeline.py --client Joinee`
+  (no skip/dry-run/runner flags - full live Apify+LLM run) launched in background,
+  log -> scratch/live_run_20260713.log. Pre-flight min_engagement_tier1/2/3 check
+  done read-only before launch: tier1/tier2 (both 10) ARE enforced in
+  apply_content_filters() (run_pipeline.py:148-164, likes+comments vs threshold,
+  runs after semantic filter/before gate); tier3 is dead config (tag_posts_by_keyword_tier
+  never assigns "tier3"; config_loader.py builds seed_keywords from tier1+tier2
+  only, so tier3_platforms keywords aren't even collected - consistent with the
+  yaml's own "people discovery only" comment). Theory (not yet confirmed against
+  real data): "zero/low engagement" reject reasons reaching the sheet are
+  LLM-gate free-text judgments, authored AFTER the numeric filter already ran,
+  not evidence the numeric filter is unwired - will cross-check against this
+  run's actual daily_log rows + likes/comments counts once it finishes.
+  IMPORTANT observability caveat recorded for future sessions: collector/apify_client.py's
+  run_actor() does ONE blocking call covering all 48 keywords, polls Apify every
+  5s with no per-keyword/per-page local log output - so per-keyword yield and
+  pagination behavior for the 6 new keywords are NOT visible in our local log
+  while collection is in flight; must be checked post-hoc via raw JSON
+  query.search breakdown (like scratch/topn_analysis_20260704.py) and/or the
+  Apify run log endpoint. A persistent Monitor is watching scratch/live_run_20260713.log
+  for crash signatures, phase transitions, and the final funnel numbers.
+  Next: on completion, do per-keyword breakdown, confirm daily_log rows,
+  compare funnel to 07-05 baseline (1624->325->196->81 kept), log Apify cost
+  in docs/run_costs.md, write the closing progress.md entry.
+
+## 2026-07-13 (live run complete)
+Phase: run-sequence (updated keyword config) | Step: live run finished + post-run verification
+Status: DONE
+Files changed: docs/run_costs.md (new 2026-07-13 row, cost pulled programmatically
+  via GET /v2/actor-runs/{run_id} usageTotalUsd instead of console)
+Test result: PASS - pipeline exited 0, no Traceback/Error/CRITICAL anywhere in
+  scratch/live_run_20260713.log. No crash at the known torch/Winsock trigger
+  point (warm_up_network_stack ran clean, actor started immediately after).
+Notes: FUNNEL: 1646 collected -> 372 semantic kept (was 325 on 07-05, +14%) ->
+  371 age filter (-1) -> 225 min-engagement filter (-146) -> 188 dedup (-37) ->
+  92 gate-kept/96 dropped (post_type: 78 comment_target / 14 avoid / 0 repost;
+  07-05 baseline was 111 gate-kept = 81 target/30 avoid) -> top-30 sent to LLM
+  (default comments_per_day) -> 90 variants -> 30 actions planned. Raw collection
+  count similar to baseline (1646 vs 1624) but semantic yield notably better;
+  gate-survivor count slightly lower (92 vs 111) - net effect on operator
+  output is the same (30 actions either run, since top-N=30 caps it).
+  KEYWORD CHECK: per-keyword raw yield from data/Joinee/raw/posts_20260713T214155Z.json
+  grouped by query.search - all 6 new keywords (community engagement platform,
+  community program management, community strategy, founder community building,
+  retention playbook community, engagement recovery community) hit the 35/35
+  maxPosts cap, i.e. strong yield, none anywhere near the prior 22-27/wk
+  near-zero band. Only "peer-to-peer engagement" (an existing keyword, NOT
+  part of this edit) came back near-empty (1/35) - flagged as a candidate for
+  the next culling round, not actioned this session.
+  MIN_ENGAGEMENT FINDING (read-only investigation, no code changed per
+  operator instruction): min_engagement_tier1/tier2 (10/10) ARE correctly
+  enforced in apply_content_filters() (run_pipeline.py:148-164) -
+  likes_count+comments_count vs threshold, confirmed live today (removed
+  exactly 146 posts). min_engagement_tier3 is dead config: keyword_tier is
+  never assigned "tier3" (tag_posts_by_keyword_tier only ever tags tier1/tier2),
+  and tier3_platforms keywords are excluded from seed_keywords/collection
+  entirely (config_loader.py:280-284) - consistent with the yaml's own
+  "people discovery only" comment, so this isn't a bug, just an unused field.
+  RESOLVED (not just theorized) why "zero engagement"/"low engagement" reject
+  reasons still show up: daily_log's reject_reason column (P) is OPERATOR-FILLED
+  ("YOU" in docs/FEEDBACK_SHEET.md / scripts/setup_feedback_sheet.py:111),
+  written by whoever runs the comment_runner UI and skips a suggested post -
+  confirmed via read_daily_log('2026-07-13', config): today's 30 rows all have
+  reject_reason empty (nothing skipped yet). It is NOT written by the pipeline,
+  the LLM gate, or the numeric filter - so those reasons are the operator's own
+  manual judgment on posts that already passed the >=10-engagement threshold,
+  not evidence the filter is unwired. No action needed unless the operator
+  wants the numeric threshold itself raised (a config value change, not a
+  wiring fix).
+  COST: $3.29205 (1646 posts x $0.002 + $0.00005 actor start, no 0-result
+  queries), pulled directly from Apify's usageTotalUsd field rather than
+  asking the operator to check the console - logged in docs/run_costs.md.
+  Sheet also auto-appended a run_costs row (apify_cost_usd left blank per
+  existing design - operator/future session can backfill from this entry).
+  OUTSTANDING (operator-facing, not this session's job): end-of-run checklist
+  flagged 71 unworked sheet rows from previous dates + empty weekly stats tab.
+  Outputs: data/Joinee/output/comment_sheet_2026-07-13.csv,
+  shortlist_2026-07-13.csv, data/Joinee/plans/2026-07-13_plan.json (all
+  gitignored, regenerable). clients/Joinee.yaml keyword-config edit + the
+  min_engagement flag-comment remain uncommitted, awaiting operator go-ahead.
+
+## 2026-07-13 (committed keyword config)
+Phase: run-sequence (updated keyword config) | Step: commit clients/Joinee.yaml
+Status: DONE
+Files changed: clients/Joinee.yaml (committed, nothing else)
+Test result: N/A (commit only)
+Notes: Branched feat/clients-joinee-keyword-refresh from master (not committed
+  directly to master per .clinerules/04-github-workflow.md - this isn't a
+  trivial one-liner). Staged clients/Joinee.yaml only - docs/run_costs.md,
+  progress.md (both modified this session) and the pile of pre-existing
+  untracked scratch/docs files left uncommitted, per operator's explicit
+  scope ("commit the Joinee.yaml keyword config change"). Commit 7262d57.
+  Not pushed, no PR opened (not requested).
+
+## 2026-07-14 (regen remaining posts + date-rollover bug + fix)
+Phase: run-sequence (updated keyword config) | Step: generate comments for
+  remaining gate-kept targets via --skip-collect --top-n all; caught + fixed
+  a real bug this surfaced
+Status: DONE (comments generated + sheet corrected) / BUG FOUND + FIXED
+Files changed: scratch/fix_daily_log_date_20260714.py (NEW, one-off sheet
+  correction script, kept for reference)
+Test result: PASS after fix - daily_log now 82 clean rows dated 2026-07-13,
+  action_id act_001..act_082 all unique, 0 duplicate URLs. run_costs has
+  exactly one 2026-07-13 Joinee row (no spurious 07-14 entry).
+Notes: Operator asked to generate comments for the ~41 remaining gate-kept
+  posts from the 07-13 run (actual count, verified against
+  shortlist_2026-07-13.csv vs comment_sheet_2026-07-13.csv: 48, not 41 -
+  flagged to operator). Used the project's own documented mechanism
+  (`--skip-collect --top-n all`, same one used successfully on 07-05 per
+  the "Task 3" entries above) to reprocess today's already-saved raw JSON
+  (data/Joinee/raw/posts_20260713T214155Z.json, no new Apify cost) and
+  generate comments for all gate-kept targets, relying on append_daily_log's
+  per-action_id dedup to append only the new rows.
+  BUG FOUND: the system date rolled over to 2026-07-14 mid-session. The
+  daily-plan date (planner/daily_plan.py:32, `plan_date =
+  date.today().isoformat()`) always uses the CURRENT date, not the date the
+  underlying (reused) data was collected/originally processed. This broke
+  the dedup guard, which keys on (date, action_id): since zero rows existed
+  for 2026-07-14 yet, ALL 82 regenerated rows got appended as "new" instead
+  of just the 48-52 that were actually missing, creating 30 exact duplicate
+  rows (same post_url as the original 07-13 batch) under the wrong date,
+  plus a spurious run_costs row for 2026-07-14 (no real collection/spend
+  happened - it reused 07-13's data). NOT YET FIXED IN CODE - this is a
+  root-cause bug that will recur on any --skip-collect rerun that crosses a
+  date boundary; flagged for a future session, not fixed this session
+  (touches planner/daily_plan.py's plan-date semantics, a shared-shape
+  change - out of scope for an unplanned fix mid-task).
+  ALSO NOTED: this rerun's LLM relevance gate produced a different result
+  than the original run - 100/188 kept vs 92/188 originally (82 comment
+  targets generated vs 78) - despite identical deterministic inputs
+  (semantic/age/engagement filter counts were byte-identical: 372/371/225).
+  Gate output isn't fully stable run-to-run; worth knowing for any future
+  operation that assumes gate-kept sets are reproducible.
+  FIX APPLIED (operator chose "retag as 07-13, delete dupes" via
+  AskUserQuestion): wrote scratch/fix_daily_log_date_20260714.py (dry-run by
+  default, --apply to execute) - retagged the 52 genuinely-new rows from
+  date=2026-07-14 to 2026-07-13 with continued action_ids (act_031..act_082,
+  following the existing act_001..030), deleted the 30 duplicate rows
+  (matched by post_url against the original 07-13 batch), deleted the
+  spurious 2026-07-14 run_costs row. Verified post-fix via read_daily_log:
+  82 rows total for 07-13, all action_ids unique, 0 duplicate URLs;
+  run_costs has exactly one 07-13 Joinee row.
+  Local files (gitignored, not touched): comment_sheet_2026-07-14.csv,
+  shortlist_2026-07-14.csv, 2026-07-14_plan.json exist alongside the
+  original 07-13-dated files - harmless duplication of local artifacts
+  (operator works from the Sheet, not these files, per project convention);
+  left as-is, not renamed/deleted.
+  Next: someone should fix planner/daily_plan.py's plan_date to reflect the
+  actual data/run date rather than date.today() when --skip-collect is used
+  across a date boundary - not done this session, flagged only.
+
+## 2026-07-14 (root-cause fix)
+Phase: run-sequence (updated keyword config) | Step: fix the plan_date/
+  date.today() bug (operator asked to fix it, follow-up to the 07-14 entry)
+Status: DONE
+Files changed: planner/daily_plan.py (build_daily_plan gains a `run_date`
+  optional param; plan_date = run_date or date.today().isoformat()),
+  run_pipeline.py (new module-level `run_date` computed once near the top of
+  main(): defaults to date.today(), overridden in the --skip-collect reload
+  branch by parsing the collected-date out of the reloaded
+  posts_YYYYMMDDTHHMMSSZ.json filename via regex, falling back to the file's
+  mtime date if the filename doesn't match; threaded through to
+  write_shortlist_csv(), write_comment_sheet() (both gained an optional
+  run_date param, default date.today() preserved for any other caller), and
+  build_daily_plan(); removed the now-redundant local
+  `run_date = plan.get("date", date.today().isoformat())` reassignment inside
+  the feedback-append block since the single top-level run_date is already
+  correct and threaded through plan["date"]).
+Test result: PASS - pytest 48/48 (no test referenced the old signatures
+  directly, adding optional kwargs was non-breaking). Smoke test
+  (--skip-collect --skip-llm) exit 0; verified the fix directly by checking
+  which output file it touched: shortlist_2026-07-13.csv was rewritten (new
+  mtime) but correctly stayed dated 2026-07-13 even though the real wall-clock
+  date during the smoke test was 2026-07-14 - before the fix this would have
+  produced a second shortlist_2026-07-14.csv (as the buggy regen run in fact
+  did, see the entry above).
+Notes: Scope: only the *sheet-affecting* date (daily_log/run_costs rows) was
+  strictly necessary to fix per the original bug report, but the local
+  shortlist/comment_sheet filenames had the identical root cause (both
+  hardcoded date.today() with no override), so fixed all three call sites
+  together for consistency rather than leaving the local-file case as a
+  known-recurring cosmetic bug. Did not touch collector/apify_client.py's
+  save_raw() timestamp format (posts_YYYYMMDDTHHMMSSZ.json) - the fix parses
+  that existing format rather than changing it. Did not add a CLI override
+  flag (e.g. --run-date) - not asked for, and the auto-derived-from-filename
+  behavior covers the actual failure mode (--skip-collect across a date
+  boundary) without adding surface area.
