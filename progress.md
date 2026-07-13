@@ -863,3 +863,18 @@ Notes: Operator asked to clean up "stray scratch and docs files" - the pile of
   under version control was touched. Working tree is now clean except the
   .gitignore edit, which is uncommitted pending operator confirmation (not
   explicitly asked to commit this one).
+
+## 2026-07-13 (workspace cleanup, part 2 — permanent deletion)
+Phase: N/A (housekeeping) | Step: commit the archive/.gitignore change, then
+  permanently delete the archive on operator's explicit confirmation
+Status: DONE
+Files changed: .gitignore, progress.md (committed 0c14c7c, pushed to master
+  directly - trivial housekeeping, no branch/PR per the trivial-fix exception)
+Test result: N/A
+Notes: `rm -rf _archive/` was denied once by the CC permission classifier
+  ("no specific target named" - operator's first phrasing was "clean up
+  everything"). Asked the operator to name the target explicitly; they
+  replied "yes, delete _archive/ for good" - ran cleanly on retry.
+  _archive/20260713_scratch_docs_cleanup/ (43 files + 8 logs from the prior
+  cleanup entry) is now permanently gone. Working tree clean, in sync with
+  origin/master.
