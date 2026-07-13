@@ -14,6 +14,7 @@ def build_daily_plan(
     comments_map: dict[str, list[dict]],  # post_id → comment variants
     existing_actions: list[dict] | None = None,
     config: Optional[object] = None,
+    run_date: Optional[str] = None,
 ) -> dict:
     """
     Build a daily action plan.
@@ -27,9 +28,15 @@ def build_daily_plan(
     Limits are read from config (config.client.action_limits), then env vars,
     then hardcoded defaults.
 
+    ``run_date`` dates the plan (and, downstream, the daily_log/run_costs sheet
+    rows). Defaults to today — pass the actual collection date explicitly when
+    reprocessing already-collected data (``--skip-collect``), so a rerun that
+    crosses midnight doesn't fork onto a new date and break the daily_log
+    per-action_id dedup guard, which keys on (date, action_id).
+
     Returns a plan dict matching the schema in §9 of the architecture spec.
     """
-    plan_date = date.today().isoformat()
+    plan_date = run_date or date.today().isoformat()
 
     # Read action limits from config → env → defaults
     if config and hasattr(config, "client") and hasattr(config.client, "action_limits"):

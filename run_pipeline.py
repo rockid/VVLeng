@@ -16,6 +16,7 @@ Usage:
 """
 
 import os
+import re
 import sys
 import json
 import logging
@@ -259,11 +260,16 @@ def print_ranked_shortlist(posts: list[dict], scores: list, limit: int):
     print()
 
 
-def write_shortlist_csv(posts: list[dict], scores: list, output_dir: str) -> Optional[str]:
+def write_shortlist_csv(posts: list[dict], scores: list, output_dir: str,
+                         run_date: Optional[str] = None) -> Optional[str]:
     """
     Persist the ranked comment-target shortlist to
     ``data/{client}/output/shortlist_{YYYY-MM-DD}.csv`` so the operator has a
     usable artifact (not just stdout). Returns the path written, or None.
+
+    ``run_date`` defaults to today; pass the actual collection date when
+    reprocessing already-collected data so the filename matches the original
+    run instead of forking onto today's date.
     """
     import csv
 
@@ -273,7 +279,7 @@ def write_shortlist_csv(posts: list[dict], scores: list, output_dir: str) -> Opt
         return None
 
     os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, f"shortlist_{date.today().isoformat()}.csv")
+    path = os.path.join(output_dir, f"shortlist_{run_date or date.today().isoformat()}.csv")
     with open(path, "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         w.writerow(["rank", "rank_score", "heuristic_score", "gate_score", "gate_reason",
@@ -289,13 +295,18 @@ def write_shortlist_csv(posts: list[dict], scores: list, output_dir: str) -> Opt
     return path
 
 
-def write_comment_sheet(posts: list[dict], comments_map: dict, output_dir: str) -> Optional[str]:
+def write_comment_sheet(posts: list[dict], comments_map: dict, output_dir: str,
+                         run_date: Optional[str] = None) -> Optional[str]:
     """
     Write the operator-facing comment sheet: each ranked comment target with its
     URL, full post text, and the generated comment variants side by side — the
     artifact used for manual comment placement on LinkedIn.
 
     ``posts`` must already be in final rank order (highest first).
+
+    ``run_date`` defaults to today; pass the actual collection date when
+    reprocessing already-collected data so the filename matches the original
+    run instead of forking onto today's date.
     """
     import csv
 
@@ -306,7 +317,7 @@ def write_comment_sheet(posts: list[dict], comments_map: dict, output_dir: str) 
     max_variants = max(max_variants, 1)
 
     os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, f"comment_sheet_{date.today().isoformat()}.csv")
+    path = os.path.join(output_dir, f"comment_sheet_{run_date or date.today().isoformat()}.csv")
     with open(path, "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         # comment_1 is the judge's top pick (variants are stored best-first).
@@ -422,6 +433,13 @@ def main():
     # =====================================================================
     # 1. COLLECT
     # =====================================================================
+    # run_date stamps every output of this run (shortlist/comment_sheet
+    # filenames, plan.json, daily_log + run_costs sheet rows). Defaults to
+    # today; overridden below to the *collected* date when --skip-collect
+    # reprocesses saved data, so a rerun that crosses midnight doesn't fork
+    # onto a new date and break the daily_log per-action_id dedup guard
+    # (which keys on (date, action_id) — see progress.md 2026-07-14).
+    run_date = date.today().isoformat()
     raw_posts = []
     posts = []
     profiles = []
@@ -474,7 +492,16 @@ def main():
                 raw_posts_data = json.load(f)
             from collector.normaliser import normalise_posts
             posts = normalise_posts(raw_posts_data)
-            logger.info("Reloaded %d posts from %s", len(posts), posts_file)
+            # Date this run by when the reloaded data was collected (parsed
+            # from save_raw()'s posts_YYYYMMDDTHHMMSSZ.json filename), not
+            # today's calendar date.
+            m = re.search(r"(\d{4})(\d{2})(\d{2})T\d{6}Z", os.path.basename(posts_file))
+            if m:
+                run_date = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+            else:
+                run_date = date.fromtimestamp(os.path.getmtime(posts_file)).isoformat()
+            logger.info("Reloaded %d posts from %s (dating this run %s)",
+                        len(posts), posts_file, run_date)
         else:
             logger.warning("No saved posts found in %s; proceeding with empty posts list", raw_dir)
 
@@ -579,7 +606,7 @@ def main():
         limit_comments = config.client.action_limits.comments_per_day
         print_ranked_shortlist(filtered_posts, scores, limit_comments)
         if not no_persist:
-            write_shortlist_csv(filtered_posts, scores, config.output_dir)
+            write_shortlist_csv(filtered_posts, scores, config.output_dir, run_date=run_date)
 
         # Only keep top-N comment_targets for LLM generation (by blended rank)
         ranked = list(zip(filtered_posts, scores))
@@ -655,7 +682,7 @@ def main():
     # Operator comment sheet — ranked targets + URL + comment variants for
     # manual placement on LinkedIn.
     if comments_map and for_llm_posts and not no_persist:
-        sheet_path = write_comment_sheet(for_llm_posts, comments_map, config.output_dir)
+        sheet_path = write_comment_sheet(for_llm_posts, comments_map, config.output_dir, run_date=run_date)
         if sheet_path:
             logger.info("Comment sheet ready for manual placement: %s", sheet_path)
             if args.runner:
@@ -677,6 +704,7 @@ def main():
         profiles=profiles,
         comments_map=comments_map,
         config=config,
+        run_date=run_date,
     )
 
     if no_persist:
@@ -692,7 +720,6 @@ def main():
             from feedback.sheet_client import (
                 append_daily_log, append_run_cost, print_end_of_run_checklist,
             )
-            run_date = plan.get("date", date.today().isoformat())
 
             # Build daily_log rows from ranked comment-target posts
             dl_rows = []
