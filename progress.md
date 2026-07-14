@@ -910,3 +910,24 @@ Notes: Sandbox: created tools/sandbox_smoke.sh wrapping the free --dry-run smoke
   Next session / operator decisions: (1) prod tag/branch separation, (2) tests_exist
   gate src/ vs feature-packages, (3) approve the 2 manifest gate-swaps, (4) ruff debt
   cleanup, (5) install .git/hooks/pre-commit LAST once all green.
+
+## 2026-07-14 (manifest migration — Tier C/D + git mgmt, operator-delegated)
+Phase: manifest-adoption | Step: gate-swaps, tests_exist, prod rail, hook, gitattributes
+Status: DONE (all decisions taken); hook install + prod-branch cut deferred to operator
+Files changed: ruff.toml, requirements.txt, 20 pipeline modules (ruff --fix),
+  tools/validate_structure.py, tools/pre-commit, project_manifest.yaml, .gitattributes,
+  OWNER-ACTIONS.md, MIGRATION.md (commits 09d31f2, bedfbaf, bb813d6, 5e4dfc0, 3e42fe6,
+  <hook>, <docs> on infra/manifest-adoption)
+Test result: PASS (48 throughout); ruff gate exit 0; sandbox gate exit 0; validator 0
+Notes: Operator approved gate-swaps + delegated the rest. Ruff: cleaned 27 findings
+  (--fix, no behaviour change) THEN wired dev-lint gate must_pass on a clean baseline;
+  sandbox gate -> bash tools/sandbox_smoke.sh. tests_exist: patched to fire only on
+  git-ADDED modules under manifest source_dirs (4 core packages) — not src/ (rejected)
+  and not edits to legacy untested modules. Prod rail: chose a `prod` BRANCH over tags
+  (prod_branch/prod_promotion in manifest; hook blocks direct prod commits); actual
+  branch cut is an OWNER-ACTION post-merge. pre-commit hook: fixed the --diff-only HEAD
+  no-op to full-repo validation + prod block, committed as a repo file but NOT installed
+  (persistence beyond session; original "last step" instruction; auto-mode guard blocked
+  it correctly; prod prereq absent) -> OWNER-ACTION with commands. .gitattributes pins
+  *.sh + hook to LF (autocrlf was breaking shebangs). Next/operator: (1) merge branch,
+  (2) cut prod branch, (3) install hook, (4) optionally enable autonomous merges.
