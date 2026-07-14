@@ -54,6 +54,45 @@ config lives in `clients/`; generated output in `data/{client}/` (gitignored).
 - `project_manifest.yaml` — machine-enforceable structure/stage/gate conventions
   (see `MANIFEST_SUMMARY.md`, `MIGRATION.md`).
 
+## Production runs & the `prod` branch
+
+`master` is for integration; **production runs come from the `prod` branch**, which
+only advances when you deliberately promote it. This keeps a half-finished `master`
+from ever becoming what runs against the live client (Joinee).
+
+**To do a real (paid) run against Joinee:**
+
+```bash
+git checkout prod                                   # switch to the reviewed production state
+PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python run_pipeline.py --client Joinee
+git checkout master                                 # switch back to normal work
+```
+
+(Leaving off `--dry-run`/`--skip-collect --skip-llm` makes real, paid Apify/LLM
+calls — only do this on `prod` when you mean to.)
+
+**To move `prod` up to the latest reviewed `master`** (after PRs have merged):
+
+```bash
+bash tools/promote_to_prod.sh
+```
+
+That fast-forwards `prod` to `master` and pushes it — it refuses if `master` isn't a
+clean fast-forward, so it can't do anything surprising.
+
+## New clone / new machine setup (one time)
+
+The commit-time rules (no structural violations, no direct commits to
+`master`/`main`/`prod`) are enforced by a git hook. After cloning fresh, run once:
+
+```bash
+git config core.hooksPath tools
+```
+
+This points git at the version-controlled hook (`tools/pre-commit`), so it also
+applies automatically to every worktree the orchestrator creates. Verify with a
+throwaway attempt to `git commit` on `master` — it should be rejected.
+
 ## Config & secrets
 
 Non-secret settings live in `config.yaml` + `clients/{client}.yaml`; secrets
