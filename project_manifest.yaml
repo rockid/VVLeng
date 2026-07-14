@@ -181,10 +181,9 @@ stages:
       - type: command                  # REAL — pytest is installed (8.3.4)
         run: "python -m pytest tests/ -q"
         must_pass: true
-      - type: command                  # <TODO> ruff is NOT yet a dependency and there
-                                       # is no src/. Real intended command once added:
-                                       # "python -m ruff check collector processor content planner db dashboard feedback"
-        run: "<TODO: add ruff to requirements.txt + pyproject config, then lint the feature packages>"
+      - type: command                  # ruff (0.6.9), config in ruff.toml (E,F,I; E501
+                                       # off; scratch/ excluded). Baseline is clean.
+        run: "python -m ruff check collector processor content planner db dashboard feedback tools"
         must_pass: true
       - type: llm_review               # CC judgment gate — diff only
         reviewer: claude_code
@@ -205,13 +204,9 @@ stages:
 
   - name: sandbox
     gates:
-      - type: command                  # <TODO> tools/sandbox_smoke.sh does not exist yet.
-                                       # It must wrap the project's real FREE smoke test:
-                                       #   PYTHONUTF8=1 PYTHONIOENCODING=utf-8 \
-                                       #   python run_pipeline.py --client Joinee --dry-run
-                                       # (--dry-run mocks both Apify + LLM, zero cost, zero keys).
-                                       # MIGRATION: create the wrapper, then set run below.
-        run: "<TODO: create tools/sandbox_smoke.sh wrapping the --dry-run smoke test, then: bash tools/sandbox_smoke.sh>"
+      - type: command                  # wraps the FREE --dry-run smoke (mocks both Apify
+                                       # + LLM, zero cost/keys; sets the Windows UTF-8 env).
+        run: "bash tools/sandbox_smoke.sh"
         must_pass: true
       - type: human_approval           # orchestrator pauses, pings the operator
     next: prod
