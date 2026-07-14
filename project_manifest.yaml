@@ -229,13 +229,17 @@ git:
   commit_message_regex: "^(feat|fix|docs|test|refactor|chore|perf|infra)(\\(.+\\))?: .{10,}"
   agent_commits_only_on: "task/*"      # agents never commit to a human branch or master
   worktree_per_task: true
-  # PRODUCTION SAFETY: master is integration-only. There is currently NO deploy
-  # pipeline (Phase 1, local-first per docs/VVLeng_architecture.md) — "production"
-  # today means the operator runs run_pipeline.py against Joinee from a local
-  # checkout. Before any autonomous agent merge can land near this repo, prod must
-  # be promoted deliberately (a tag, or a prod branch the operator advances), never
-  # taken straight from master HEAD. Tracked in MIGRATION.md + OWNER-ACTIONS.
-  prod_promotion: "tag"                # promote to prod by cutting a tag; master is not auto-deployed
+  # PRODUCTION SAFETY: master is integration-only. There is NO deploy pipeline
+  # (Phase 1, local-first per docs/VVLeng_architecture.md) — "production" means the
+  # operator runs run_pipeline.py against Joinee from a local checkout. The rail:
+  # the operator keeps the `prod` branch checked out for real runs, and `prod` only
+  # advances by a deliberate human promotion (fast-forward merge from master after
+  # review). So an autonomous agent merge to master can NEVER become "what runs
+  # against Joinee next". Promote procedure documented in OWNER-ACTIONS.md.
+  # (Branch chosen over tags: one always-checked-out ref is simpler to operate than
+  # cutting/listing tags — see MANIFEST_SUMMARY.)
+  prod_branch: "prod"
+  prod_promotion: "branch"             # promote by fast-forwarding prod<-master; master is not auto-deployed
 
 # -----------------------------------------------------------------------------
 # EXECUTOR PERMISSIONS — what each agent may touch, per stage. Orchestrator
