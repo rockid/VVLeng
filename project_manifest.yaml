@@ -41,6 +41,18 @@ structure:
     - docs
     - tools
 
+  # Source trees the tests_exist gate watches. A NEWLY-ADDED .py module under any
+  # of these must ship a matching tests/test_<stem>.py (see validate_structure.py
+  # check_tests_exist). Scoped to the 4 core pipeline packages and to *added*
+  # modules only — editing a pre-existing untested module is not blocked, but new
+  # code must be tested. db/dashboard/feedback/scripts are intentionally excluded
+  # (glue/partial). See MANIFEST_SUMMARY judgment call #1.
+  source_dirs:
+    - collector/
+    - processor/
+    - content/
+    - planner/
+
   required_files:
     - project_manifest.yaml
     - config.yaml                 # global non-secret config (active_client, actor ids, models)
@@ -161,10 +173,11 @@ stages:
   - name: dev
     gates:
       - type: structure_valid
-      - type: tests_exist              # NOTE: validate_structure.py hard-codes this
-                                       # to src/*.py; this repo has no src/ (see
-                                       # MANIFEST_SUMMARY judgment call #1), so the
-                                       # gate is currently INERT. MIGRATION decision item.
+      - type: tests_exist              # ACTIVE: fires when a task ADDS a new .py module
+                                       # under structure.source_dirs (the 4 core pipeline
+                                       # packages) without a matching tests/test_<stem>.py.
+                                       # Edits to pre-existing untested modules are not
+                                       # blocked. See MANIFEST_SUMMARY judgment call #1.
       - type: command                  # REAL — pytest is installed (8.3.4)
         run: "python -m pytest tests/ -q"
         must_pass: true

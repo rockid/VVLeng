@@ -48,6 +48,16 @@ def git_changed_files(repo: Path, base_ref: str) -> list[str]:
     return [line for line in out.stdout.splitlines() if line.strip()]
 
 
+def git_added_files(repo: Path, base_ref: str) -> list[str]:
+    """Files ADDED (git status A) since base_ref — used by the tests_exist gate so
+    it fires only on brand-new modules, not on edits to pre-existing untested ones."""
+    out = subprocess.run(
+        ["git", "diff", "--name-only", "--diff-filter=A", base_ref, "HEAD"],
+        cwd=repo, capture_output=True, text=True, check=True,
+    )
+    return [line for line in out.stdout.splitlines() if line.strip()]
+
+
 def all_repo_files(repo: Path) -> list[str]:
     out = subprocess.run(
         ["git", "ls-files"], cwd=repo, capture_output=True, text=True, check=True
@@ -120,17 +130,24 @@ def check_doc_sections(repo: Path, manifest: dict, files: list[str], violations:
                         })
 
 
-def check_tests_exist(repo: Path, files: list[str], violations: list):
-    """Every new/changed src module must have a corresponding tests/test_*.py."""
-    src_changed = [f for f in files if f.startswith("src/") and f.endswith(".py")
-                   and Path(f).name != "__init__.py"]
-    for f in src_changed:
+def check_tests_exist(repo: Path, added_files: list[str], source_dirs: list[str],
+                      violations: list):
+    """Every NEWLY-ADDED source module (under a manifest source_dir) must ship a
+    matching tests/test_<stem>.py. Scoped to added files so pre-existing untested
+    modules in a legacy tree don't block edits — but new code must be tested.
+    source_dirs comes from manifest structure.source_dirs (default ['src/'])."""
+    new_modules = [
+        f for f in added_files
+        if f.endswith(".py") and Path(f).name != "__init__.py"
+        and any(f.startswith(d) for d in source_dirs)
+    ]
+    for f in new_modules:
         stem = Path(f).stem
         expected = repo / "tests" / f"test_{stem}.py"
         if not expected.exists():
             violations.append({
                 "rule": "tests_exist",
-                "detail": f"{f} changed but tests/test_{stem}.py does not exist",
+                "detail": f"new module {f} has no tests/test_{stem}.py",
                 "fix": f"create tests/test_{stem}.py",
             })
 
@@ -143,6 +160,7 @@ def main():
     repo = Path(sys.argv[1]).resolve()
     manifest = load_manifest(repo)
     structure = manifest.get("structure", {})
+    source_dirs = structure.get("source_dirs", ["src/"])
 
     diff_only = "--diff-only" in sys.argv
     if diff_only:
@@ -159,7 +177,7 @@ def main():
     if diff_only:
         # protected paths: existing is fine, an agent *modifying* one is not
         check_protected(files, structure, violations)
-        check_tests_exist(repo, files, violations)
+        check_tests_exist(repo, git_added_files(repo, base_ref), source_dirs, violations)
 
     if violations:
         fail(violations)
