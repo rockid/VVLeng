@@ -1,9 +1,9 @@
 """Daily plan builder — prioritise actions and enforce limits."""
 
-import os
 import logging
-from datetime import datetime, date
-from typing import Any, Optional
+import os
+from datetime import date, datetime
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

@@ -1,8 +1,8 @@
 """Emit plan JSON + CSV to disk."""
 
-import os
 import json
 import logging
+import os
 from datetime import date
 
 logger = logging.getLogger(__name__)

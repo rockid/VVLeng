@@ -1,10 +1,20 @@
 """SQLAlchemy ORM models — shared across SQLite and PostgreSQL."""
 
 import uuid
-from datetime import datetime, date
+from datetime import datetime
+
 from sqlalchemy import (
-    Column, String, Text, Integer, Float, Date, DateTime, ForeignKey, JSON, UUID as SA_UUID, create_engine
+    JSON,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
 )
+from sqlalchemy import UUID as SA_UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 

@@ -1,7 +1,7 @@
 """LLM client wrapper — laozhang.ai via OpenAI-compatible API."""
 
-import os
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 

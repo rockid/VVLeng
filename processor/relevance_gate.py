@@ -78,8 +78,8 @@ def score_relevance(
 
     One LLM call per ``batch_size`` posts. Deterministic (temperature 0).
     """
-    from content.llm_client import complete, load_prompt
     from config_loader import build_niche_prompt_context
+    from content.llm_client import complete, load_prompt
 
     if not posts:
         return []

@@ -1,7 +1,6 @@
 """Profile deduplication — merge profiles by URN or name+company."""
 
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 

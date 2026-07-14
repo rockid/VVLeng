@@ -1,11 +1,11 @@
 """Apify actor runner — trigger, poll, download."""
 
-import os
-import time
 import json
 import logging
-from typing import Optional
+import os
+import time
 from datetime import datetime
+from typing import Optional
 
 import httpx
 

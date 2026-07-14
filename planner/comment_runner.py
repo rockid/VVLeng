@@ -7,11 +7,11 @@ loop. Promoted from ``scratch/build_comment_ui.py`` (2026-07-05) so every run
 that writes a comment sheet also emits its runner.
 """
 
-import os
-import re
 import csv
 import json
 import logging
+import os
+import re
 from datetime import date
 
 logger = logging.getLogger(__name__)
