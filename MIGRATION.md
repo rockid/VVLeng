@@ -34,51 +34,50 @@ decisions.
 
 ## Tier B — additive tooling (no production imports; each is self-contained)
 
-- [~] **Add `ruff`** — DONE-PARTIAL. Added `ruff==0.6.9` to `requirements.txt` +
-      `ruff.toml` (select E,F,I; E501 off; `scratch/` excluded). Commit `006aa10`.
-      Report mode surfaced **27 pre-existing findings** (16 `I001` unsorted-imports,
-      11 `F401` unused-import), all auto-fixable. **DEFERRED:** the manifest
-      dev-stage lint gate `<TODO>` was NOT wired to a real `must_pass` command —
-      doing so against 27 lines of pre-existing debt would leave a knowingly-failing
-      gate, and MIGRATION says those fixes are separate commits. Needs a decision:
-      clean the debt first (a `ruff check --fix` commit) then wire `must_pass`, or
-      wire it now and accept dev-stage is blocked until debt clears.
-- [x] **Create `tools/sandbox_smoke.sh`** — DONE. Wraps
-      `PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python run_pipeline.py --client Joinee --dry-run`;
-      verified runs green (exit 0). Commit `0c87886`. **PENDING:** swapping the
-      sandbox gate's `<TODO>` string to `bash tools/sandbox_smoke.sh` edits the
-      approved+protected `project_manifest.yaml` — left for a human go-ahead (one line).
+- [x] **Add `ruff`** — DONE. Added `ruff==0.6.9` + `ruff.toml` (E,F,I; E501 off;
+      `__init__.py` F401-exempt; `scratch/` excluded), commit `006aa10`. Decision
+      taken (operator delegated): **cleaned the debt first**, then wired the gate.
+      `ruff check --fix` cleared all 27 findings (commit `09d31f2`, no behaviour
+      change, 48 tests pass, smoke exit 0); dev-lint gate then wired to the real
+      `ruff check ...` with `must_pass` against a clean baseline (commit `bb813d6`).
+- [x] **Create `tools/sandbox_smoke.sh`** — DONE. Wraps the `--dry-run` smoke with
+      the UTF-8 env; verified exit 0. Commit `0c87886`. Sandbox gate `<TODO>` swapped
+      to `bash tools/sandbox_smoke.sh` (operator approved the manifest edit),
+      commit `bb813d6`.
 
-## Tier C — production-adjacent / needs a human decision (do NOT do mechanically)
+## Tier C — production-adjacent / needs a human decision (operator delegated these to CC)
 
-- [ ] **Prod deploy separation** (the load-bearing production-safety item). Today
-      `master` is the de-facto deploy source: "production" = the operator running
-      `run_pipeline.py --client Joinee` from a local checkout, normally on `master`.
-      The manifest now declares `git.prod_promotion: tag` and `master` as
-      integration-only. Make that real: cut a `prod`/release tag (or a `prod`
-      branch) that the operator advances deliberately, so an autonomous agent
-      merge to `master` can never become "what runs against Joinee next." Record
-      the chosen mechanism in `OWNER-ACTIONS.md`. **Prerequisite before enabling
-      any autonomous merge near this repo.**
-- [ ] **`tests_exist` gate decision.** `tools/validate_structure.py` hard-codes
-      this check to `src/*.py`; this repo has no `src/`, so the gate is currently
-      **inert** — it never fires for the real code in `collector/`, `processor/`,
-      etc. Pick one: **(a)** patch `check_tests_exist` to scan the feature packages
-      instead of `src/` (small tool change, no repo-wide move — recommended), or
-      **(b)** consolidate code under `src/` (touches every import in the repo —
-      high blast radius, contradicts descriptive-first; only if the team wants a
-      single source tree). This is coupled to the executor-scope call (SUMMARY
-      judgment #1/#4) — decide them together.
+- [~] **Prod deploy separation** (the load-bearing production-safety item). Decision
+      taken: **`prod` branch** rail (chosen over tags for solo-operator simplicity).
+      Manifest now declares `git.prod_branch: prod` + `prod_promotion: branch`
+      (master = integration-only), commit `3e42fe6`. The pre-commit hook blocks
+      direct commits to `prod`. **Remaining (human, post-merge):** actually cut the
+      `prod` branch from the reviewed master and run production only from it — the
+      exact commands are in `OWNER-ACTIONS.md`. Not done now because prod must be cut
+      *after* this branch merges. Operator confirmed 2–3 day runway makes this safe.
+- [x] **`tests_exist` gate decision.** Decision taken (operator delegated "you decide
+      what's optimal"): **patched `check_tests_exist`** to read `structure.source_dirs`
+      (the 4 core pipeline packages) and fire only on git-**added** modules missing
+      `tests/test_<stem>.py` — forward TDD discipline without blocking edits to
+      pre-existing untested modules. NOT the `src/` consolidation (high blast radius,
+      rejected). Commit `bedfbaf`; verified (flags a new module, ignores `db/` +
+      `__init__.py`, passes when the stem test exists).
 
-## Tier D — the last step, only after Tier A passes clean
+## Tier D — the last step (deferred to the operator by design + auto-mode guard)
 
-- [ ] **Install the enforcement hook.** Copy `tools/pre-commit` →
-      `.git/hooks/pre-commit` and mark it executable (`chmod +x`). The hook (1)
-      blocks direct commits to `main`/`master` and (2) runs
-      `validate_structure.py --diff-only HEAD` on every commit. Installing it
-      before Tier A is done would block all commits on the 5 violations. Note it
-      only runs in the repo it's installed into — also install it into each
-      per-task worktree the orchestrator creates.
+- [~] **Install the enforcement hook.** The committed `tools/pre-commit` was
+      **improved** (commit — see below): it now runs **full-repo** validation (the
+      original `--diff-only HEAD` was `git diff HEAD HEAD`, an empty no-op) and also
+      blocks direct commits to `prod`. **NOT installed into `.git/hooks/`** — that
+      persists execution beyond a session and the original instruction was "the last
+      step"; an agent auto-mode guard also (correctly) blocked it, and the `prod`
+      branch prerequisite doesn't exist yet. Install step + commands recorded in
+      `OWNER-ACTIONS.md`, to run once merged. Also install into each orchestrator
+      worktree (`.git/hooks/` is per-clone, not version-controlled).
+
+### Extra (git management, operator delegated)
+- [x] **`.gitattributes`** pinning `*.sh` + `tools/pre-commit` to LF so Windows
+      autocrlf can't put `\r` in a shebang and break `sh`. Commit `5e4dfc0`.
 
 ---
 

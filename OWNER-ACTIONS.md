@@ -44,6 +44,22 @@ repo cold each session).
   a few task/* runs pass their gates by hand. Not required for the pipeline to work.
   **Unblocks:** hands-off orchestrator operation.
 
+- [ ] **Install the pre-commit hook — the genuine last step** (manifest-adoption, Tier D)
+  **Why it's yours:** installing into `.git/hooks/` persists code execution beyond an
+  agent session; the original instruction was "don't install the hook yet — that's the
+  last step." An agent auto-mode guard also (correctly) blocks it. Do it once the repo
+  is on master and the `prod` branch exists, so the hook's clean-repo assumption and
+  prod-block both hold.
+  **What to do:** from the repo root, after this branch is merged:
+  ```
+  cp tools/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+  sh .git/hooks/pre-commit    # sanity: should print nothing and exit 0 on a clean repo
+  ```
+  Also install it into each orchestrator worktree (the hook is per-clone; `.git/hooks/`
+  is not version-controlled). The committed `tools/pre-commit` is the source of truth —
+  it blocks direct commits to master/main/prod and runs full-repo structure validation.
+  **Unblocks:** commit-time enforcement of the manifest structure rules.
+
 <!-- Template entry:
 - [ ] **<short title>** (<decision id / task ref>)
   **Why it's yours:** <e.g. needs your API key / costs money / account step>
