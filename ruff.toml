@@ -1,0 +1,14 @@
+# ruff config for VV_Leng — backs the dev-stage lint gate in project_manifest.yaml.
+# Kept conservative to start: pyflakes (F) + a subset of pycodestyle (E) + isort (I).
+# scratch/ is exploratory and excluded (see .clinerules/00 — not maintained pipeline).
+
+target-version = "py311"
+line-length = 100
+
+extend-exclude = ["scratch", "data", "_archive"]
+
+[lint]
+select = ["E", "F", "I"]
+# E501 (line too long) is noisy in this codebase's prose-heavy prompts/docstrings;
+# leave it off until the debt is triaged, so the gate can be adopted incrementally.
+ignore = ["E501"]
