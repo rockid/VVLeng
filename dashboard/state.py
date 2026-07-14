@@ -1,10 +1,9 @@
 """State management — load/save plan JSON and DB actions."""
 
 import json
-import os
 import logging
+import os
 from datetime import date
-from typing import Any
 
 logger = logging.getLogger(__name__)
 

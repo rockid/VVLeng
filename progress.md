@@ -878,3 +878,73 @@ Notes: `rm -rf _archive/` was denied once by the CC permission classifier
   _archive/20260713_scratch_docs_cleanup/ (43 files + 8 logs from the prior
   cleanup entry) is now permanently gone. Working tree clean, in sync with
   origin/master.
+
+## 2026-07-14 (manifest migration — Tier A)
+Phase: manifest-adoption | Step: MIGRATION.md Tier A (framework dirs/files)
+Status: DONE
+Files changed: specs/.gitkeep, dev_steps/.gitkeep, architecture/overview.md, README.md (4 commits: 7b299c8, e87275d, 6530c82, 2584b47 on infra/manifest-adoption)
+Test result: PASS (48 passed after each item)
+Notes: Executed the 4 zero-risk MIGRATION Tier A items one-by-one. Baseline
+  validator = 5 violations, 48 tests green. After each item: ran
+  validate_structure.py (5->4->3->1->0) and pytest (48 pass), committed
+  "chore(migration): <item>". Used .gitkeep (NOT README.md) in specs/ &
+  dev_steps/ because a .md there would trip the spec_*/steps_* naming rules.
+  Validator now FULLY CLEAN (0 violations). Tier B (ruff, sandbox_smoke.sh)
+  next; will NOT edit the approved+protected project_manifest.yaml without a
+  go-ahead. Stopping before Tier C (production-risk) per operator instruction.
+
+## 2026-07-14 (manifest migration — Tier B + STOP before Tier C)
+Phase: manifest-adoption | Step: MIGRATION.md Tier B (tooling); halt before Tier C
+Status: DONE (Tier B additive); STOPPED before Tier C per operator instruction
+Files changed: tools/sandbox_smoke.sh, requirements.txt, ruff.toml, MIGRATION.md
+  (commits 0c87886, 006aa10, + MIGRATION status update on infra/manifest-adoption)
+Test result: PASS (48 passed throughout)
+Notes: Sandbox: created tools/sandbox_smoke.sh wrapping the free --dry-run smoke
+  (verified exit 0). Ruff: added ruff==0.6.9 + ruff.toml; report mode = 27
+  pre-existing findings (16 I001, 11 F401), all auto-fixable, NOT fixed (separate
+  commits per MIGRATION). Did NOT edit the approved+protected project_manifest.yaml:
+  the two <TODO> gate-swaps (sandbox->bash tools/sandbox_smoke.sh; dev lint->real
+  ruff cmd) await a human go-ahead. Final validator: {"status":"pass"} 0 violations.
+  STOPPED before Tier C (prod deploy separation; tests_exist src/ decision) and the
+  Tier D hook install, per operator's "stop before production-risk items" rule.
+  Next session / operator decisions: (1) prod tag/branch separation, (2) tests_exist
+  gate src/ vs feature-packages, (3) approve the 2 manifest gate-swaps, (4) ruff debt
+  cleanup, (5) install .git/hooks/pre-commit LAST once all green.
+
+## 2026-07-14 (manifest migration — Tier C/D + git mgmt, operator-delegated)
+Phase: manifest-adoption | Step: gate-swaps, tests_exist, prod rail, hook, gitattributes
+Status: DONE (all decisions taken); hook install + prod-branch cut deferred to operator
+Files changed: ruff.toml, requirements.txt, 20 pipeline modules (ruff --fix),
+  tools/validate_structure.py, tools/pre-commit, project_manifest.yaml, .gitattributes,
+  OWNER-ACTIONS.md, MIGRATION.md (commits 09d31f2, bedfbaf, bb813d6, 5e4dfc0, 3e42fe6,
+  <hook>, <docs> on infra/manifest-adoption)
+Test result: PASS (48 throughout); ruff gate exit 0; sandbox gate exit 0; validator 0
+Notes: Operator approved gate-swaps + delegated the rest. Ruff: cleaned 27 findings
+  (--fix, no behaviour change) THEN wired dev-lint gate must_pass on a clean baseline;
+  sandbox gate -> bash tools/sandbox_smoke.sh. tests_exist: patched to fire only on
+  git-ADDED modules under manifest source_dirs (4 core packages) — not src/ (rejected)
+  and not edits to legacy untested modules. Prod rail: chose a `prod` BRANCH over tags
+  (prod_branch/prod_promotion in manifest; hook blocks direct prod commits); actual
+  branch cut is an OWNER-ACTION post-merge. pre-commit hook: fixed the --diff-only HEAD
+  no-op to full-repo validation + prod block, committed as a repo file but NOT installed
+  (persistence beyond session; original "last step" instruction; auto-mode guard blocked
+  it correctly; prod prereq absent) -> OWNER-ACTION with commands. .gitattributes pins
+  *.sh + hook to LF (autocrlf was breaking shebangs). Next/operator: (1) merge branch,
+  (2) cut prod branch, (3) install hook, (4) optionally enable autonomous merges.
+
+## 2026-07-14 (hook live + PR #8; merge handed to operator)
+Phase: manifest-adoption | Step: install hook, open PR, merge/tag
+Status: DONE (hook live, PR open); merge+tag BLOCKED pending operator (by design)
+Files changed: .git/hooks/pre-commit installed (not version-controlled); progress.md
+Test result: PASS (hook enforcement verified live)
+Notes: Installed tools/pre-commit -> .git/hooks/pre-commit (chmod +x). PROVEN live:
+  a root-level test_*.py (structural violation) and a commit to master are BOTH
+  rejected (exit 1, no commit lands); master tip still 4327999, clean commits still
+  pass. Pushed infra/manifest-adoption, opened PR #8
+  (github.com/rockid/VVLeng/pull/8). Squash-merge was correctly blocked by the
+  auto-mode guard + standing rule (own-PR merge to master needs the operator) — did
+  NOT bypass. OPERATOR TO DO: review + squash-merge PR #8, then tag (suggest
+  `git checkout master && git pull && git tag -a v0.1-manifest -m "manifest constitution"
+  && git push origin v0.1-manifest`), then the OWNER-ACTIONS steps (cut prod branch,
+  install hook into worktrees). Note: install the hook into .git/hooks of any fresh
+  clone/worktree — it is per-clone, not carried by the merge.

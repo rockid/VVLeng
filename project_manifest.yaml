@@ -1,0 +1,268 @@
+# =============================================================================
+# PROJECT MANIFEST — machine-enforceable conventions for VV_Leng
+#
+# One file per project, lives at repo root. This is the source of truth that
+# tools/validate_structure.py and tools/orchestrator.py read; the prose rules in
+# .clinerules/ remain for humans, but the pipeline reads THIS.
+#
+# DESCRIPTIVE-FIRST: the structure / placement / naming rules below encode the
+# repo's *actual dominant patterns* (snake_case Python organised by feature
+# package, test_*.py under tests/, NN-name.md under .clinerules/), not an ideal.
+# Where a rule points at something that does NOT exist yet (architecture/, specs/,
+# dev_steps/, README.md, tools/sandbox_smoke.sh, ruff), it is there because the
+# mandated stage pipeline requires it — every such gap is listed in MIGRATION.md.
+# Until MIGRATION.md is worked through, `validate_structure.py` will report the
+# violations enumerated there. That is expected during adoption, not a bug.
+# =============================================================================
+
+project:
+  id: vvleng                   # used in branch names (task/vvleng-*), task ids, logs
+  description: "Semi-automated LinkedIn engagement pipeline (Apify collect -> semantic filter -> LLM relevance gate -> blended ranking -> LLM comment gen/judge -> operator CSV/HTML). IN PRODUCTION for client Joinee."
+
+# -----------------------------------------------------------------------------
+# STRUCTURE — expected repo layout. validate_structure.py diffs reality vs this.
+# -----------------------------------------------------------------------------
+structure:
+  # Dirs that must exist. The four feature packages listed are the ones the
+  # smoke test actually exercises (collect -> process -> content -> plan); db/,
+  # dashboard/, feedback/ exist but are partial/optional and deliberately NOT
+  # required. architecture/, specs/, dev_steps/ do not exist yet — the mandated
+  # stage pipeline needs them (see MIGRATION.md items 1-2).
+  required_dirs:
+    - architecture          # MIGRATION: create — stage-pipeline entry artifact lives here
+    - specs                 # MIGRATION: create — 'specs' stage output
+    - dev_steps             # MIGRATION: create — 'dev_steps' stage output
+    - collector             # production pipeline: Apify collect + normalise
+    - processor             # production pipeline: semantic filter, gate, scoring, dedup
+    - content               # production pipeline: LLM client, comment gen, prompts
+    - planner               # production pipeline: daily plan, output, comment runner
+    - clients               # per-client config (Joinee live, vivendix)
+    - tests
+    - docs
+    - tools
+
+  # Source trees the tests_exist gate watches. A NEWLY-ADDED .py module under any
+  # of these must ship a matching tests/test_<stem>.py (see validate_structure.py
+  # check_tests_exist). Scoped to the 4 core pipeline packages and to *added*
+  # modules only — editing a pre-existing untested module is not blocked, but new
+  # code must be tested. db/dashboard/feedback/scripts are intentionally excluded
+  # (glue/partial). See MANIFEST_SUMMARY judgment call #1.
+  source_dirs:
+    - collector/
+    - processor/
+    - content/
+    - planner/
+
+  required_files:
+    - project_manifest.yaml
+    - config.yaml                 # global non-secret config (active_client, actor ids, models)
+    - config_loader.py            # the single config/secrets entry point
+    - run_pipeline.py             # main orchestrator / smoke-test entry point
+    - requirements.txt
+    - progress.md                 # mandatory rolling session log (.clinerules/06)
+    - CLAUDE.md
+    - architecture/overview.md    # MIGRATION: create — 'architecture' stage entry artifact
+    - README.md                   # MIGRATION: create — repo currently has no README
+
+  # Files matching these globs may ONLY exist under the stated directory.
+  # These encode invariants that ALREADY hold in the repo (test_*.py, TASK-*.md)
+  # plus the two future stage-doc conventions (spec_*.md, steps_*.md — no files
+  # yet, so no current violation). NOTE: there is deliberately NO blanket "*.py"
+  # placement rule — this repo organises Python by feature package plus root
+  # entry points (run_pipeline.py, config_loader.py), so constraining .py to a
+  # single tree would misrepresent the dominant pattern. See MANIFEST_SUMMARY
+  # judgment call #2.
+  placement_rules:
+    - pattern: "test_*.py"
+      allowed_under: tests/
+    - pattern: "conftest.py"
+      allowed_under: tests/
+    - pattern: "spec_*.md"
+      allowed_under: specs/
+    - pattern: "steps_*.md"
+      allowed_under: dev_steps/
+    - pattern: "TASK-*.md"
+      allowed_under: .cline-tasks/
+
+  # Naming conventions, regex-checked against each matching file's basename.
+  # All rules below hold across the repo TODAY (verified) — snake_case Python
+  # everywhere, NN-name.md in .clinerules/. docs/*.md is intentionally NOT
+  # regex-constrained: it has no dominant naming pattern (mix of CamelCase,
+  # snake_case, UPPER_CASE) — noted in MIGRATION.md, not enforced.
+  naming_rules:
+    - target: "*.py"
+      regex: "^[a-z_][a-z0-9_]*\\.py$"
+    - target: "specs/*.md"
+      regex: "^spec_[a-z0-9_]+\\.md$"
+    - target: "dev_steps/*.md"
+      regex: "^steps_[a-z0-9_]+\\.md$"
+    - target: ".clinerules/*.md"
+      regex: "^[0-9]{2}-[a-z0-9-]+\\.md$"
+
+  # Paths an agent must NEVER modify (orchestrator + pre-commit hard-block any
+  # diff touching them). This project is IN PRODUCTION for Joinee, so this list
+  # covers every path whose accidental change could alter live pipeline output:
+  # live client configs, the global config, and ALL prompt files the pipeline
+  # reads at runtime. .clinerules/ is intentionally NOT protected — existing
+  # workflow (.clinerules/01) has sessions update the status table. requirements.txt
+  # is NOT protected — dependency changes are legitimate reviewed dev work.
+  # See MANIFEST_SUMMARY judgment call #3.
+  protected_paths:
+    - .env
+    - .git/
+    - project_manifest.yaml         # only the human edits the rules
+    - config.yaml                   # active_client, actor ids, model routing — live
+    - clients/Joinee.yaml           # LIVE client config
+    - clients/vivendix.yaml         # second client config
+    - content/prompts/              # every prompt the pipeline reads live (gen, rank, gate)
+
+# -----------------------------------------------------------------------------
+# DOC TEMPLATES — required sections per doc type. Validator checks the headers
+# exist in any file matching the path_pattern; orchestrator generates skeletons
+# from these at task creation. No spec_*/steps_* files exist yet, so these fire
+# no violations today — they gate the specs/dev_steps stages once those run.
+# -----------------------------------------------------------------------------
+doc_templates:
+  spec:
+    path_pattern: "specs/spec_{task_id}.md"
+    required_sections:
+      - "# Spec:"
+      - "## Objective"
+      - "## Inputs"
+      - "## Outputs"
+      - "## Acceptance criteria"
+  dev_steps:
+    path_pattern: "dev_steps/steps_{task_id}.md"
+    required_sections:
+      - "# Steps:"
+      - "## Chunks"
+      - "## Dependencies"
+
+# -----------------------------------------------------------------------------
+# STAGE PIPELINE — the state machine. Orchestrator owns this; a task cannot
+# advance until its current stage's gates all pass. Gates are mapped to what
+# THIS repo can actually run today; anything not yet runnable carries a
+# <TODO ...> run string and is a MIGRATION.md item.
+# -----------------------------------------------------------------------------
+stages:
+  - name: architecture
+    entry_artifact: "architecture/overview.md"     # must exist to even start
+    gates:
+      - type: file_exists
+        path: "architecture/overview.md"
+    next: specs
+
+  - name: specs
+    produces: "specs/spec_{task_id}.md"
+    gates:
+      - type: doc_sections
+        template: spec
+      - type: structure_valid
+    executor: claude_code              # CC writes specs (judgment work)
+    next: dev_steps
+
+  - name: dev_steps
+    produces: "dev_steps/steps_{task_id}.md"
+    gates:
+      - type: doc_sections
+        template: dev_steps
+      - type: structure_valid
+    executor: claude_code
+    next: dev
+
+  - name: dev
+    gates:
+      - type: structure_valid
+      - type: tests_exist              # ACTIVE: fires when a task ADDS a new .py module
+                                       # under structure.source_dirs (the 4 core pipeline
+                                       # packages) without a matching tests/test_<stem>.py.
+                                       # Edits to pre-existing untested modules are not
+                                       # blocked. See MANIFEST_SUMMARY judgment call #1.
+      - type: command                  # REAL — pytest is installed (8.3.4)
+        run: "python -m pytest tests/ -q"
+        must_pass: true
+      - type: command                  # ruff (0.6.9), config in ruff.toml (E,F,I; E501
+                                       # off; scratch/ excluded). Baseline is clean.
+        run: "python -m ruff check collector processor content planner db dashboard feedback tools"
+        must_pass: true
+      - type: llm_review               # CC judgment gate — diff only
+        reviewer: claude_code
+        max_diff_lines: 800            # force smaller chunks if exceeded
+    executor: cline                    # token-heavy work goes to Cline/LZ
+    max_retries: 3
+    next: assembly
+
+  - name: assembly
+    gates:
+      - type: command
+        run: "python -m pytest tests/ -q"
+        must_pass: true
+      - type: llm_review
+        reviewer: claude_code
+    executor: cline
+    next: sandbox
+
+  - name: sandbox
+    gates:
+      - type: command                  # wraps the FREE --dry-run smoke (mocks both Apify
+                                       # + LLM, zero cost/keys; sets the Windows UTF-8 env).
+        run: "bash tools/sandbox_smoke.sh"
+        must_pass: true
+      - type: human_approval           # orchestrator pauses, pings the operator
+    next: prod
+
+  - name: prod
+    gates:
+      - type: human_approval           # promotion to prod is a deliberate human act,
+                                       # NOT an automatic merge — see git.prod_promotion
+    terminal: true
+
+# -----------------------------------------------------------------------------
+# GIT RULES — enforced via pre-commit hook + orchestrator checks.
+# branch_pattern/commit_message_regex are WIDENED from the template to match this
+# repo's real history: human branches use feat/fix/docs/infra prefixes (no
+# project-id segment), the orchestrator uses task/vvleng-*, and commit scope is
+# optional (the log contains bare `chore:` and `feat:` as well as `infra(cline):`).
+# -----------------------------------------------------------------------------
+git:
+  branch_pattern: "^(task|fix|exp|feat|docs|infra|refactor|chore|perf)/[a-z0-9._-]+$"
+  commit_message_regex: "^(feat|fix|docs|test|refactor|chore|perf|infra)(\\(.+\\))?: .{10,}"
+  agent_commits_only_on: "task/*"      # agents never commit to a human branch or master
+  worktree_per_task: true
+  # PRODUCTION SAFETY: master is integration-only. There is NO deploy pipeline
+  # (Phase 1, local-first per docs/VVLeng_architecture.md) — "production" means the
+  # operator runs run_pipeline.py against Joinee from a local checkout. The rail:
+  # the operator keeps the `prod` branch checked out for real runs, and `prod` only
+  # advances by a deliberate human promotion (fast-forward merge from master after
+  # review). So an autonomous agent merge to master can NEVER become "what runs
+  # against Joinee next". Promote procedure documented in OWNER-ACTIONS.md.
+  # (Branch chosen over tags: one always-checked-out ref is simpler to operate than
+  # cutting/listing tags — see MANIFEST_SUMMARY.)
+  prod_branch: "prod"
+  prod_promotion: "branch"             # promote by fast-forwarding prod<-master; master is not auto-deployed
+
+# -----------------------------------------------------------------------------
+# EXECUTOR PERMISSIONS — what each agent may touch, per stage. Orchestrator
+# translates these to --allowedTools / workspace scoping.
+#
+# JUDGMENT CALL (#4 in MANIFEST_SUMMARY): cline's dev/assembly write scope is kept
+# LITERAL to src/ + tests/ + dev_steps/ as instructed. This repo has no src/, so
+# the effect is that autonomous cline work writes NEW code under src/ + tests +
+# step docs, while the EXISTING production packages (collector/, processor/,
+# content/, planner/, ...) stay OUT of autonomous write scope — a deliberately
+# conservative posture for a live client system. Consolidating existing code
+# under src/ is a separate, human-decided migration, NOT part of this adoption.
+# -----------------------------------------------------------------------------
+executors:
+  cline:
+    command: 'cline -y --json'
+    writable_paths_by_stage:
+      dev: [src/, tests/, dev_steps/]
+      assembly: [src/, tests/]
+  claude_code:
+    command: 'claude -p --output-format json'
+    review_allowed_tools: "Read,Bash(git diff:*),Bash(python -m pytest:*)"   # read-only
+    write_allowed_tools: "Read,Write,Edit"
+    writable_paths_by_stage:
+      specs: [specs/]
+      dev_steps: [dev_steps/]

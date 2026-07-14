@@ -1,7 +1,6 @@
 """Incremental collection — skip already-seen posts/profiles."""
 
 import logging
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 

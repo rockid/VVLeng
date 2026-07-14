@@ -19,7 +19,6 @@ Confirmed field mapping for harvestapi/linkedin-post-search:
 """
 
 import logging
-from datetime import datetime
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)

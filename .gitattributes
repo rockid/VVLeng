@@ -1,0 +1,5 @@
+# Keep shell scripts and the git hook as LF. On Windows (core.autocrlf=true) a
+# CRLF checkout puts \r into the shebang line and `sh`/`bash` fails with a
+# "bad interpreter" / "\r command not found" error. eol=lf pins them regardless.
+*.sh              text eol=lf
+tools/pre-commit  text eol=lf

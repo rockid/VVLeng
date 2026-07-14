@@ -1,0 +1,30 @@
+#!/bin/sh
+# pre-commit — install into .git/hooks/pre-commit (or core.hooksPath) in each
+# project repo AND each worktree. Enforces manifest rules at commit time, so
+# even a manual `git commit` by you or an agent outside the orchestrator
+# cannot land a structural violation.
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# 1. Never commit directly to an integration/deploy branch. Work on task/*, fix/*,
+#    feat/*, etc. `prod` advances only by `git merge --ff-only master` (a
+#    fast-forward creates no commit, so this hook doesn't fire on promotion).
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ] || [ "$BRANCH" = "prod" ]; then
+    echo "pre-commit: direct commits to $BRANCH are blocked; use a task/*, fix/*, or feat/* branch"
+    exit 1
+fi
+
+# 2. Structure validation — FULL repo (required dirs/files, placement, naming,
+#    doc sections). Runs on the about-to-be-committed tree; clean repo = no false
+#    positives. NOTE: the diff-scoped gates (protected_paths, tests_exist) are
+#    enforced by the orchestrator against each task's base_ref, not here — they
+#    are meaningless without a real diff, and the previous `--diff-only HEAD`
+#    (git diff HEAD HEAD) made ALL checks a no-op.
+python "$REPO_ROOT/tools/validate_structure.py" "$REPO_ROOT"
+if [ $? -ne 0 ]; then
+    echo "pre-commit: structure validation failed (violations above)"
+    exit 1
+fi
+
+exit 0

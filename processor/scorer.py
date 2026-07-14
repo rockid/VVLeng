@@ -1,8 +1,8 @@
 """Lead scoring — relevance, influence, recency, engagement."""
 
-import os
 import logging
-from typing import Any, Optional
+import os
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

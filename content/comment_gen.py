@@ -1,10 +1,10 @@
 """Comment generation — LLM-powered with guardrails."""
 
-import os
-import re
 import json
 import logging
-from typing import Any, Optional
+import os
+import re
+from typing import Optional
 
 from .llm_client import complete, load_prompt
 
