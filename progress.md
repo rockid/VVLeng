@@ -948,3 +948,41 @@ Notes: Installed tools/pre-commit -> .git/hooks/pre-commit (chmod +x). PROVEN li
   && git push origin v0.1-manifest`), then the OWNER-ACTIONS steps (cut prod branch,
   install hook into worktrees). Note: install the hook into .git/hooks of any fresh
   clone/worktree — it is per-clone, not carried by the merge.
+
+## 2026-07-14 14:41 (recovery: pre-commit hook re-installed)
+Phase: manifest-adoption / prod-rail | Step: restore lost operational infrastructure
+Status: DONE (hook enforcement restored); PR #9 merge still BLOCKED pending operator (by design)
+Files changed: none version-controlled (.git/hooks/pre-commit is per-clone, not tracked)
+Test result: PASS (enforcement verified live, both paths)
+Notes: Recovery after a broken session. Found: PR #8 (manifest constitution) already
+  merged to master (7d0596e); prod branch cut and even with master; BUT the per-clone
+  pre-commit hook was NOT installed in this clone (.git/hooks/pre-commit absent) so
+  enforcement was OFF. Re-installed via `cp tools/pre-commit .git/hooks/pre-commit &&
+  chmod +x`. Verified live: (1) direct commit to master -> blocked exit 1; (2) root-level
+  test_*.py structural violation on a feature branch -> blocked exit 1 (placement rule).
+  Working tree left clean on master @ 7d0596e; temp verify branch deleted, no commits
+  landed. STILL OPERATOR-OWNED (unchanged, not "broken"): PR #9
+  (infra/prod-rail-runbook: tools/promote_to_prod.sh + README/OWNER-ACTIONS prod-rail
+  docs) is OPEN and awaiting operator squash-merge to master -- own-PR->master merge
+  needs the operator per standing rule; did NOT merge. Reminder: this hook is per-clone
+  -- reinstall it in any fresh clone/worktree; it is not carried by a merge.
+
+## 2026-07-14 14:52 (CORRECTION + PR #9 merged)
+Phase: prod-rail | Step: correct hook diagnosis; merge PR #9; verify master
+Status: DONE
+Files changed: master advanced to 390544d (PR #9 squash-merge); progress.md
+Test result: PASS (enforcement live, validator 0; smoke re-running in bg)
+Notes: CORRECTION to the 14:41 entry -- enforcement was NOT off. This clone's
+  .git/config already had `core.hooksPath = tools` (persists across sessions; not
+  lost in the crash), so git was running the version-controlled `tools/pre-commit`
+  the whole time. The `.git/hooks/pre-commit` I copied at 14:41 was DEAD (hooksPath
+  overrides .git/hooks) -- removed it to avoid a misleading stale copy. Proven: with
+  no .git/hooks copy present, a direct master commit is still blocked (via
+  hooksPath->tools/pre-commit). Worktrees: `git worktree list` shows only the main
+  checkout -- no additional worktrees need bootstrap. Per-clone bootstrap for any
+  FUTURE clone is now `git config core.hooksPath tools` (documented by PR #9 in
+  README "New clone setup"), NOT the old cp-into-.git/hooks step (PR #9 removed that
+  from OWNER-ACTIONS). Merged PR #9 (prod promote helper + prod-rail/hook-bootstrap
+  docs) squash -> master 390544d, deleted+pruned infra/prod-rail-runbook,
+  tools/promote_to_prod.sh now on master. Remaining OWNER-ACTION (not done, your
+  call): promote master->prod when ready via tools/promote_to_prod.sh (ff-only).
