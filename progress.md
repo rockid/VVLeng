@@ -878,3 +878,35 @@ Notes: `rm -rf _archive/` was denied once by the CC permission classifier
   _archive/20260713_scratch_docs_cleanup/ (43 files + 8 logs from the prior
   cleanup entry) is now permanently gone. Working tree clean, in sync with
   origin/master.
+
+## 2026-07-14 (manifest migration — Tier A)
+Phase: manifest-adoption | Step: MIGRATION.md Tier A (framework dirs/files)
+Status: DONE
+Files changed: specs/.gitkeep, dev_steps/.gitkeep, architecture/overview.md, README.md (4 commits: 7b299c8, e87275d, 6530c82, 2584b47 on infra/manifest-adoption)
+Test result: PASS (48 passed after each item)
+Notes: Executed the 4 zero-risk MIGRATION Tier A items one-by-one. Baseline
+  validator = 5 violations, 48 tests green. After each item: ran
+  validate_structure.py (5->4->3->1->0) and pytest (48 pass), committed
+  "chore(migration): <item>". Used .gitkeep (NOT README.md) in specs/ &
+  dev_steps/ because a .md there would trip the spec_*/steps_* naming rules.
+  Validator now FULLY CLEAN (0 violations). Tier B (ruff, sandbox_smoke.sh)
+  next; will NOT edit the approved+protected project_manifest.yaml without a
+  go-ahead. Stopping before Tier C (production-risk) per operator instruction.
+
+## 2026-07-14 (manifest migration — Tier B + STOP before Tier C)
+Phase: manifest-adoption | Step: MIGRATION.md Tier B (tooling); halt before Tier C
+Status: DONE (Tier B additive); STOPPED before Tier C per operator instruction
+Files changed: tools/sandbox_smoke.sh, requirements.txt, ruff.toml, MIGRATION.md
+  (commits 0c87886, 006aa10, + MIGRATION status update on infra/manifest-adoption)
+Test result: PASS (48 passed throughout)
+Notes: Sandbox: created tools/sandbox_smoke.sh wrapping the free --dry-run smoke
+  (verified exit 0). Ruff: added ruff==0.6.9 + ruff.toml; report mode = 27
+  pre-existing findings (16 I001, 11 F401), all auto-fixable, NOT fixed (separate
+  commits per MIGRATION). Did NOT edit the approved+protected project_manifest.yaml:
+  the two <TODO> gate-swaps (sandbox->bash tools/sandbox_smoke.sh; dev lint->real
+  ruff cmd) await a human go-ahead. Final validator: {"status":"pass"} 0 violations.
+  STOPPED before Tier C (prod deploy separation; tests_exist src/ decision) and the
+  Tier D hook install, per operator's "stop before production-risk items" rule.
+  Next session / operator decisions: (1) prod tag/branch separation, (2) tests_exist
+  gate src/ vs feature-packages, (3) approve the 2 manifest gate-swaps, (4) ruff debt
+  cleanup, (5) install .git/hooks/pre-commit LAST once all green.
