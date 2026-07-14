@@ -931,3 +931,20 @@ Notes: Operator approved gate-swaps + delegated the rest. Ruff: cleaned 27 findi
   it correctly; prod prereq absent) -> OWNER-ACTION with commands. .gitattributes pins
   *.sh + hook to LF (autocrlf was breaking shebangs). Next/operator: (1) merge branch,
   (2) cut prod branch, (3) install hook, (4) optionally enable autonomous merges.
+
+## 2026-07-14 (hook live + PR #8; merge handed to operator)
+Phase: manifest-adoption | Step: install hook, open PR, merge/tag
+Status: DONE (hook live, PR open); merge+tag BLOCKED pending operator (by design)
+Files changed: .git/hooks/pre-commit installed (not version-controlled); progress.md
+Test result: PASS (hook enforcement verified live)
+Notes: Installed tools/pre-commit -> .git/hooks/pre-commit (chmod +x). PROVEN live:
+  a root-level test_*.py (structural violation) and a commit to master are BOTH
+  rejected (exit 1, no commit lands); master tip still 4327999, clean commits still
+  pass. Pushed infra/manifest-adoption, opened PR #8
+  (github.com/rockid/VVLeng/pull/8). Squash-merge was correctly blocked by the
+  auto-mode guard + standing rule (own-PR merge to master needs the operator) — did
+  NOT bypass. OPERATOR TO DO: review + squash-merge PR #8, then tag (suggest
+  `git checkout master && git pull && git tag -a v0.1-manifest -m "manifest constitution"
+  && git push origin v0.1-manifest`), then the OWNER-ACTIONS steps (cut prod branch,
+  install hook into worktrees). Note: install the hook into .git/hooks of any fresh
+  clone/worktree — it is per-clone, not carried by the merge.
