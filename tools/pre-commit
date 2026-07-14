@@ -1,0 +1,23 @@
+#!/bin/sh
+# pre-commit — install into .git/hooks/pre-commit (or core.hooksPath) in each
+# project repo AND each worktree. Enforces manifest rules at commit time, so
+# even a manual `git commit` by you or an agent outside the orchestrator
+# cannot land a structural violation.
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# 1. Agents (and everyone) never commit directly to main
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+    echo "pre-commit: direct commits to $BRANCH are blocked; use a task/* branch"
+    exit 1
+fi
+
+# 2. Structure validation on the staged diff
+python "$REPO_ROOT/tools/validate_structure.py" "$REPO_ROOT" --diff-only HEAD
+if [ $? -ne 0 ]; then
+    echo "pre-commit: structure validation failed (violations above)"
+    exit 1
+fi
+
+exit 0
